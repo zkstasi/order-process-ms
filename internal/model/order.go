@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -24,10 +25,10 @@ type Order struct {
 
 // функция для создания готового заказа, вместо SetAll
 
-func NewOrder(newUserID string) *Order {
+func NewOrder(newUserId string) *Order {
 	return &Order{
 		id:        generateUniqID(),
-		userID:    newUserID,
+		userID:    newUserId,
 		status:    OrderStatus(0),
 		createdAt: time.Now(),
 	}
@@ -35,11 +36,11 @@ func NewOrder(newUserID string) *Order {
 
 // методы для получения полей структуры
 
-func (o *Order) ID() string {
+func (o *Order) Id() string {
 	return o.id
 }
 
-func (o *Order) UserID() string {
+func (o *Order) UserId() string {
 	return o.userID
 }
 
@@ -51,10 +52,6 @@ func (o *Order) CreatedAt() time.Time {
 	return o.createdAt
 }
 
-func (o *Order) Fields() (string, string, OrderStatus, time.Time) {
-	return o.id, o.userID, o.status, o.createdAt
-}
-
 // метод для изменения поля статус
 
 func (o *Order) SetStatus(newStatus OrderStatus) {
@@ -64,5 +61,5 @@ func (o *Order) SetStatus(newStatus OrderStatus) {
 // функция для генерации id заказа
 
 func generateUniqID() string {
-	return "" // тут должна быть логика генерации id заказа
+	return fmt.Sprintf("Order-%d", time.Now().UnixNano())
 }

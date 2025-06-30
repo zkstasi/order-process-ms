@@ -5,16 +5,12 @@ type User struct {
 	name string // Имя пользователя
 }
 
-func (u *User) ID() int {
+func (u *User) Id() int {
 	return u.id
 }
 
 func (u *User) Name() string {
 	return u.name
-}
-
-func (u *User) Fields() (int, string) {
-	return u.id, u.name
 }
 
 func (u *User) SetName(newName string) {
