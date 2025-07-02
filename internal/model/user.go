@@ -5,6 +5,15 @@ type User struct {
 	name string // Имя пользователя
 }
 
+// NewUser создаёт нового пользователя с заданным id и именем.
+
+func NewUser(newID int, newName string) *User {
+	return &User{
+		id:   newID,
+		name: newName,
+	}
+}
+
 func (u *User) Id() int {
 	return u.id
 }
@@ -17,9 +26,6 @@ func (u *User) SetName(newName string) {
 	u.name = newName
 }
 
-func NewUser(newID int, newName string) *User {
-	return &User{
-		id:   newID,
-		name: newName,
-	}
+func (u *User) GetType() string {
+	return "user"
 }

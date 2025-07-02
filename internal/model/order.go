@@ -23,7 +23,8 @@ type Order struct {
 	createdAt time.Time   // Когда заказ создан
 }
 
-// функция для создания готового заказа, вместо SetAll
+// NewOrder создаёт новый заказ с уникальным ID, привязанный к пользователю userID.
+// Статус по умолчанию — 0 (новый заказ).
 
 func NewOrder(newUserId string) *Order {
 	return &Order{
@@ -62,4 +63,8 @@ func (o *Order) SetStatus(newStatus OrderStatus) {
 
 func generateUniqID() string {
 	return fmt.Sprintf("Order-%d", time.Now().UnixNano())
+}
+
+func (o *Order) GetType() string {
+	return "order"
 }
