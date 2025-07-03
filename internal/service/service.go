@@ -10,9 +10,9 @@ import (
 func CreateStructs() {
 
 	order := model.NewOrder("user123")
-	user := model.NewUser(234, "Петя")
-	delivery := model.NewDelivery(65, 78, 123, "ул. Ленина")
-	warehouse := model.NewWarehouse(543, 78, 0)
+	user := model.NewUser("user123", "Петя")
+	delivery := model.NewDelivery(65, "order-783", "user123", "ул. Ленина", 0)
+	warehouse := model.NewWarehouse(543, "order-783", 0)
 
 	repository.SaveStorable(order)
 	repository.SaveStorable(user)

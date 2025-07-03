@@ -4,8 +4,8 @@ type DeliveryStatus int
 
 type Delivery struct {
 	id      int    // Уникальный идентификатор доставки
-	orderId int    // ID заказа
-	userId  int    // ID клиента
+	orderId string // ID заказа
+	userId  string // ID клиента
 	address string // Адрес доставки
 	status  DeliveryStatus
 }
@@ -13,13 +13,13 @@ type Delivery struct {
 // NewDelivery создаёт новую доставку с заданными параметрами.
 // Статус доставки устанавливается по умолчанию в 0 ("новая").
 
-func NewDelivery(id int, orderId int, userId int, address string) *Delivery {
+func NewDelivery(id int, orderId string, userId string, address string, status DeliveryStatus) *Delivery {
 	return &Delivery{
 		id:      id,
 		orderId: orderId,
 		userId:  userId,
 		address: address,
-		status:  DeliveryStatus(0),
+		status:  status,
 	}
 }
 
@@ -27,11 +27,11 @@ func (d *Delivery) Id() int {
 	return d.id
 }
 
-func (d *Delivery) OrderId() int {
+func (d *Delivery) OrderId() string {
 	return d.orderId
 }
 
-func (d *Delivery) UserId() int {
+func (d *Delivery) UserId() string {
 	return d.userId
 }
 

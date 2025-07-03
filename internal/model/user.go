@@ -1,20 +1,20 @@
 package model
 
 type User struct {
-	id   int    // Приватный уникальный номер пользователя
+	id   string // Приватный уникальный номер пользователя
 	name string // Имя пользователя
 }
 
 // NewUser создаёт нового пользователя с заданным id и именем.
 
-func NewUser(newID int, newName string) *User {
+func NewUser(newID string, newName string) *User {
 	return &User{
 		id:   newID,
 		name: newName,
 	}
 }
 
-func (u *User) Id() int {
+func (u *User) Id() string {
 	return u.id
 }
 
