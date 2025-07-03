@@ -48,6 +48,8 @@ func (d *Delivery) SetStatus(newStatus DeliveryStatus) {
 
 }
 
+// реализация интерфейса Storable
+
 func (d *Delivery) GetType() string {
 	return "delivery"
 }

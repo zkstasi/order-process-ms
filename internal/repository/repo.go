@@ -24,6 +24,6 @@ func SaveStorable(s model.Storable) {
 	case *model.Warehouse:
 		warehouses = append(warehouses, v)
 	default:
-		fmt.Println("неизвестный тип")
+		fmt.Println("Type: Undefined")
 	}
 }

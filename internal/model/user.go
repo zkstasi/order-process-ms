@@ -26,6 +26,8 @@ func (u *User) SetName(newName string) {
 	u.name = newName
 }
 
+// реализация интерфейса Storable
+
 func (u *User) GetType() string {
 	return "user"
 }

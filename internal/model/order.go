@@ -65,6 +65,8 @@ func generateUniqID() string {
 	return fmt.Sprintf("Order-%d", time.Now().UnixNano())
 }
 
+// реализация интерфейса Storable
+
 func (o *Order) GetType() string {
 	return "order"
 }

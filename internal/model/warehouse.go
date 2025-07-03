@@ -34,6 +34,8 @@ func (w *Warehouse) SetStatus(newStatus WarehouseStatus) {
 	w.status = newStatus
 }
 
+// реализация интерфейса Storable
+
 func (w *Warehouse) GetType() string {
 	return "warehouse"
 }
