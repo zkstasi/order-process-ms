@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"order-ms/internal/model"
 	"sync"
+	"time"
 )
 
 var (
@@ -45,4 +46,56 @@ func SaveStorable(dataChan <-chan model.Storable) {
 		}
 	}
 
+}
+
+func Logger(stop <-chan struct{}) {
+
+	// предыдущие длины слайс
+
+	lastOrdersCount := 0
+	lastUsersCount := 0
+	lastDeliveriesCount := 0
+	lastWarehousesCount := 0
+
+	for {
+		select {
+		case <-stop:
+			return
+		default:
+			muOrders.Lock()
+			ordersCount := len(orders)
+			muOrders.Unlock()
+
+			muUsers.Lock()
+			usersCount := len(users)
+			muUsers.Unlock()
+
+			muDeliveries.Lock()
+			deliveriesCount := len(deliveries)
+			muDeliveries.Unlock()
+
+			muWarehouses.Lock()
+			warehousesCount := len(warehouses)
+			muWarehouses.Unlock()
+
+			if ordersCount > lastOrdersCount {
+				fmt.Printf("New orders: %d\n", ordersCount-lastOrdersCount)
+				lastOrdersCount = ordersCount
+			}
+			if usersCount > lastUsersCount {
+				fmt.Printf("New users: %d\n", usersCount-lastUsersCount)
+				lastUsersCount = usersCount
+			}
+			if deliveriesCount > lastDeliveriesCount {
+				fmt.Printf("New deliveries: %d\n", deliveriesCount-lastDeliveriesCount)
+				lastDeliveriesCount = deliveriesCount
+			}
+			if warehousesCount > lastWarehousesCount {
+				fmt.Printf("New warehouses: %d\n", warehousesCount-lastWarehousesCount)
+				lastWarehousesCount = warehousesCount
+			}
+		}
+
+		time.Sleep(200 * time.Millisecond)
+	}
 }

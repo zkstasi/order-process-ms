@@ -10,11 +10,19 @@ import (
 
 func main() {
 
+	loggerStop := make(chan struct{})
 	stop := make(chan struct{})
 	dataChan := make(chan model.Storable)
 
+	var wgLog sync.WaitGroup
 	var wgCrSt sync.WaitGroup
 	var wgSaSt sync.WaitGroup
+
+	wgLog.Add(1) // запуск логирования
+	go func() {
+		defer wgLog.Done()
+		repository.Logger(loggerStop)
+	}()
 
 	wgCrSt.Add(1) //запуск создателя структур
 	go func() {
@@ -30,9 +38,13 @@ func main() {
 
 	time.Sleep(3 * time.Second) // работа 3 секунды
 
-	close(stop)
+	close(stop)   // останавливаем создателя структур
 	wgCrSt.Wait() // ждем завершения CreateStructs
 
-	close(dataChan)
-	wgSaSt.Wait() // ждем завершения SaveStorable
+	close(dataChan) // закрываем канал для SaveStorable
+	wgSaSt.Wait()   // ждем завершения SaveStorable
+
+	close(loggerStop) // останавливаем Logger
+	wgLog.Wait()      // Ждем завершения Logger
+
 }
