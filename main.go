@@ -21,7 +21,7 @@ func main() {
 	wgLog.Add(1) // запуск логирования
 	go func() {
 		defer wgLog.Done()
-		repository.Logger(loggerStop)
+		service.Logger(loggerStop)
 	}()
 
 	wgCrSt.Add(1) //запуск создателя структур
