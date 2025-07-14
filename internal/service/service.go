@@ -7,10 +7,9 @@ import (
 	"time"
 )
 
-// функция для создания структур и передачи их в репозиторий через канал
+// функция для создания структур и передачи их в канал DataChan
 
 func CreateStructs(dataChan chan<- model.Storable, stop <-chan struct{}) {
-
 	for {
 		select {
 		case <-stop: // Остановка бесконечного цикла
@@ -34,39 +33,39 @@ func CreateStructs(dataChan chan<- model.Storable, stop <-chan struct{}) {
 	}
 }
 
+// функция, которая читает из DataChan и сохраняет данные в репозиторий
+
+func ProcessDataChan(dataChan <-chan model.Storable, stop <-chan struct{}) {
+	for {
+		select {
+		case s, ok := <-dataChan:
+			if !ok {
+				return
+			}
+			repository.SaveStorable(s)
+		case <-stop:
+			return
+		}
+	}
+}
+
 func Logger(loggerStop <-chan struct{}) {
 
-	// предыдущие длины слайс
+	// получаем стартовые длины, чтобы считать только новые данные
 
-	lastOrdersIndex := 0
-	lastUsersIndex := 0
-	lastDeliveriesIndex := 0
-	lastWarehousesIndex := 0
+	lastOrdersIndex := len(repository.GetOrders())
+	lastUsersIndex := len(repository.GetUsers())
+	lastDeliveriesIndex := len(repository.GetDeliveries())
+	lastWarehousesIndex := len(repository.GetWarehouses())
 
 	for {
 		select {
 		case <-loggerStop:
 			return
 		default:
-			repository.MuOrders.Lock()
-			ordersCount := len(repository.Orders)
-			newOrders := repository.Orders[lastOrdersIndex:ordersCount]
-			repository.MuOrders.Unlock()
-
-			repository.MuUsers.Lock()
-			usersCount := len(repository.Users)
-			newUsers := repository.Users[lastUsersIndex:usersCount]
-			repository.MuUsers.Unlock()
-
-			repository.MuDeliveries.Lock()
-			deliveriesCount := len(repository.Deliveries)
-			newDeliveries := repository.Deliveries[lastDeliveriesIndex:deliveriesCount]
-			repository.MuDeliveries.Unlock()
-
-			repository.MuWarehouses.Lock()
-			warehousesCount := len(repository.Warehouses)
-			newWarehouses := repository.Warehouses[lastWarehousesIndex:warehousesCount]
-			repository.MuWarehouses.Unlock()
+			orders := repository.GetOrders() // вызов функции, возвращаем копию среза и сохраняем в переменную
+			ordersCount := len(orders)
+			newOrders := orders[lastOrdersIndex:ordersCount]
 
 			if len(newOrders) > 0 {
 				fmt.Printf("New orders: %d\n", len(newOrders))
@@ -75,6 +74,11 @@ func Logger(loggerStop <-chan struct{}) {
 				}
 				lastOrdersIndex = ordersCount
 			}
+
+			users := repository.GetUsers()
+			usersCount := len(users)
+			newUsers := users[lastUsersIndex:usersCount]
+
 			if len(newUsers) > 0 {
 				fmt.Printf("New users: %d\n", len(newUsers))
 				for _, u := range newUsers {
@@ -83,6 +87,10 @@ func Logger(loggerStop <-chan struct{}) {
 				lastUsersIndex = usersCount
 			}
 
+			deliveries := repository.GetDeliveries()
+			deliveriesCount := len(deliveries)
+			newDeliveries := deliveries[lastDeliveriesIndex:deliveriesCount]
+
 			if len(newDeliveries) > 0 {
 				fmt.Printf("New deliveries: %d\n", len(newDeliveries))
 				for _, d := range newDeliveries {
@@ -90,6 +98,10 @@ func Logger(loggerStop <-chan struct{}) {
 				}
 				lastDeliveriesIndex = deliveriesCount
 			}
+
+			warehouses := repository.GetWarehouses()
+			warehousesCount := len(warehouses)
+			newWarehouses := warehouses[lastWarehousesIndex:warehousesCount]
 
 			if len(newWarehouses) > 0 {
 				fmt.Printf("New warehouses: %d\n", len(newWarehouses))

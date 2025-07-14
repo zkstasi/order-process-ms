@@ -2,7 +2,6 @@ package main
 
 import (
 	"order-ms/internal/model"
-	"order-ms/internal/repository"
 	"order-ms/internal/service"
 	"sync"
 	"time"
@@ -33,7 +32,7 @@ func main() {
 	wgSaSt.Add(1) // запуск хранителя в репозиторий
 	go func() {
 		defer wgSaSt.Done()
-		repository.SaveStorable(dataChan)
+		service.ProcessDataChan(dataChan, stop)
 	}()
 
 	time.Sleep(3 * time.Second) // работа 3 секунды
@@ -41,8 +40,8 @@ func main() {
 	close(stop)   // останавливаем создателя структур
 	wgCrSt.Wait() // ждем завершения CreateStructs
 
-	close(dataChan) // закрываем канал для SaveStorable
-	wgSaSt.Wait()   // ждем завершения SaveStorable
+	close(dataChan) // закрываем канал для ProcessDataChan
+	wgSaSt.Wait()   // ждем завершения ProcessDataChan
 
 	close(loggerStop) // останавливаем Logger
 	wgLog.Wait()      // Ждем завершения Logger
