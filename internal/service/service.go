@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"order-ms/internal/model"
 	"order-ms/internal/repository"
@@ -9,10 +10,10 @@ import (
 
 // функция для создания структур и передачи их в канал DataChan
 
-func CreateStructs(dataChan chan<- model.Storable, stop <-chan struct{}) {
+func CreateStructs(ctx context.Context, dataChan chan<- model.Storable) {
 	for {
 		select {
-		case <-stop: // Остановка бесконечного цикла
+		case <-ctx.Done(): // Контекст отменен, нужно завершить работу
 			return
 		default:
 			order := model.NewOrder("user123")
@@ -35,7 +36,7 @@ func CreateStructs(dataChan chan<- model.Storable, stop <-chan struct{}) {
 
 // функция, которая читает из DataChan и сохраняет данные в репозиторий
 
-func ProcessDataChan(dataChan <-chan model.Storable, stop <-chan struct{}) {
+func ProcessDataChan(ctx context.Context, dataChan <-chan model.Storable) {
 	for {
 		select {
 		case s, ok := <-dataChan:
@@ -43,13 +44,13 @@ func ProcessDataChan(dataChan <-chan model.Storable, stop <-chan struct{}) {
 				return
 			}
 			repository.SaveStorable(s)
-		case <-stop:
+		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-func Logger(loggerStop <-chan struct{}) {
+func Logger(ctx context.Context) {
 
 	// получаем стартовые длины, чтобы считать только новые данные
 
@@ -60,7 +61,7 @@ func Logger(loggerStop <-chan struct{}) {
 
 	for {
 		select {
-		case <-loggerStop:
+		case <-ctx.Done():
 			return
 		default:
 			orders := repository.GetOrders() // вызов функции, возвращаем копию среза и сохраняем в переменную
