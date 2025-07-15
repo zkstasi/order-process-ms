@@ -1,38 +1,49 @@
 package main
 
 import (
-	"fmt"
+	"order-ms/internal/model"
 	"order-ms/internal/service"
+	"sync"
 	"time"
 )
 
-// Для проверки
 func main() {
 
-	//order := model.NewOrder("user123")
-	//
-	//// Выводим информацию о заказе для проверки
-	//fmt.Printf("Создан новый заказ:\n")
-	//fmt.Printf("ID: %s\n", order.Id())
-	//fmt.Printf("UserID: %s\n", order.UserId())
-	//fmt.Printf("Status: %d\n", order.Status())
-	//fmt.Printf("CreatedAt: %s\n", order.CreatedAt().Format(time.RFC3339))
-	//
-	//user := model.NewUser(456, "John")
-	//
-	//// Выводим информацию о пользователе для проверки
-	//fmt.Printf("Создан новый пользователь:\n")
-	//fmt.Printf("UserId: %d\n", user.Id())
-	//fmt.Printf("UserName: %s\n", user.Name())
+	loggerStop := make(chan struct{})
+	stop := make(chan struct{})
+	dataChan := make(chan model.Storable)
 
-	// вызов функции создания структур по интервалу
+	var wgLog sync.WaitGroup
+	var wgCrSt sync.WaitGroup
+	var wgSaSt sync.WaitGroup
 
-	fmt.Println("Starting service...")
+	wgLog.Add(1) // запуск логирования
+	go func() {
+		defer wgLog.Done()
+		service.Logger(loggerStop)
+	}()
 
-	for {
-		service.CreateStructs()
-		fmt.Println("CreateStructs called")
+	wgCrSt.Add(1) //запуск создателя структур
+	go func() {
+		defer wgCrSt.Done()
+		service.CreateStructs(dataChan, stop)
+	}()
 
-		time.Sleep(1 * time.Minute) //ждем минуту
-	}
+	wgSaSt.Add(1) // запуск хранителя в репозиторий
+	go func() {
+		defer wgSaSt.Done()
+		service.ProcessDataChan(dataChan, stop)
+	}()
+
+	time.Sleep(3 * time.Second) // работа 3 секунды
+
+	close(stop)   // останавливаем создателя структур
+	wgCrSt.Wait() // ждем завершения CreateStructs
+
+	close(dataChan) // закрываем канал для ProcessDataChan
+	wgSaSt.Wait()   // ждем завершения ProcessDataChan
+
+	close(loggerStop) // останавливаем Logger
+	wgLog.Wait()      // Ждем завершения Logger
+
 }
