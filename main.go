@@ -1,16 +1,20 @@
 package main
 
 import (
+	"context"
 	"order-ms/internal/model"
 	"order-ms/internal/service"
+	"os/signal"
 	"sync"
-	"time"
+	"syscall"
 )
 
 func main() {
 
-	loggerStop := make(chan struct{})
-	stop := make(chan struct{})
+	//создание контекста, который отменится, когда пользователь нажмет Ctrl+C или придет другой сигнал завершения
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop() // освобождаем ресурсы
+
 	dataChan := make(chan model.Storable)
 
 	var wgLog sync.WaitGroup
@@ -20,30 +24,27 @@ func main() {
 	wgLog.Add(1) // запуск логирования
 	go func() {
 		defer wgLog.Done()
-		service.Logger(loggerStop)
+		service.Logger(ctx)
 	}()
 
 	wgCrSt.Add(1) //запуск создателя структур
 	go func() {
 		defer wgCrSt.Done()
-		service.CreateStructs(dataChan, stop)
+		service.CreateStructs(ctx, dataChan)
 	}()
 
 	wgSaSt.Add(1) // запуск хранителя в репозиторий
 	go func() {
 		defer wgSaSt.Done()
-		service.ProcessDataChan(dataChan, stop)
+		service.ProcessDataChan(dataChan)
 	}()
 
-	time.Sleep(3 * time.Second) // работа 3 секунды
+	<-ctx.Done() // ждем сигнала ОС
 
-	close(stop)   // останавливаем создателя структур
 	wgCrSt.Wait() // ждем завершения CreateStructs
 
 	close(dataChan) // закрываем канал для ProcessDataChan
 	wgSaSt.Wait()   // ждем завершения ProcessDataChan
 
-	close(loggerStop) // останавливаем Logger
-	wgLog.Wait()      // Ждем завершения Logger
-
+	wgLog.Wait() // Ждем завершения Logger
 }

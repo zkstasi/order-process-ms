@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"order-ms/internal/model"
 	"order-ms/internal/repository"
@@ -9,12 +10,12 @@ import (
 
 // функция для создания структур и передачи их в канал DataChan
 
-func CreateStructs(dataChan chan<- model.Storable, stop <-chan struct{}) {
+func CreateStructs(ctx context.Context, dataChan chan<- model.Storable) {
 	for {
 		select {
-		case <-stop: // Остановка бесконечного цикла
+		case <-ctx.Done(): // Контекст отменен, нужно завершить работу
 			return
-		default:
+		case <-time.After(200 * time.Millisecond): // контекст отменяется без искусственной задержки
 			order := model.NewOrder("user123")
 			dataChan <- order
 
@@ -26,30 +27,20 @@ func CreateStructs(dataChan chan<- model.Storable, stop <-chan struct{}) {
 
 			warehouse := model.NewWarehouse(543, "order-783", 0)
 			dataChan <- warehouse
-
-			time.Sleep(300 * time.Millisecond) // Пауза между отправками
-		}
-
-	}
-}
-
-// функция, которая читает из DataChan и сохраняет данные в репозиторий
-
-func ProcessDataChan(dataChan <-chan model.Storable, stop <-chan struct{}) {
-	for {
-		select {
-		case s, ok := <-dataChan:
-			if !ok {
-				return
-			}
-			repository.SaveStorable(s)
-		case <-stop:
-			return
 		}
 	}
 }
 
-func Logger(loggerStop <-chan struct{}) {
+// функция, которая читает из DataChan и сохраняет данные в репозиторий через бесконечный цикл
+// его останавливает закрытие канала dataChan
+
+func ProcessDataChan(dataChan <-chan model.Storable) {
+	for s := range dataChan {
+		repository.SaveStorable(s)
+	}
+}
+
+func Logger(ctx context.Context) {
 
 	// получаем стартовые длины, чтобы считать только новые данные
 
@@ -60,9 +51,9 @@ func Logger(loggerStop <-chan struct{}) {
 
 	for {
 		select {
-		case <-loggerStop:
+		case <-ctx.Done():
 			return
-		default:
+		case <-time.After(200 * time.Millisecond):
 			orders := repository.GetOrders() // вызов функции, возвращаем копию среза и сохраняем в переменную
 			ordersCount := len(orders)
 			newOrders := orders[lastOrdersIndex:ordersCount]
@@ -111,7 +102,5 @@ func Logger(loggerStop <-chan struct{}) {
 				lastWarehousesIndex = warehousesCount
 			}
 		}
-
-		time.Sleep(200 * time.Millisecond)
 	}
 }
