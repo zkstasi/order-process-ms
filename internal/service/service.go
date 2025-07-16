@@ -15,7 +15,7 @@ func CreateStructs(ctx context.Context, dataChan chan<- model.Storable) {
 		select {
 		case <-ctx.Done(): // Контекст отменен, нужно завершить работу
 			return
-		default:
+		case <-time.After(200 * time.Millisecond): // контекст отменяется без искусственной задержки
 			order := model.NewOrder("user123")
 			dataChan <- order
 
@@ -27,8 +27,6 @@ func CreateStructs(ctx context.Context, dataChan chan<- model.Storable) {
 
 			warehouse := model.NewWarehouse(543, "order-783", 0)
 			dataChan <- warehouse
-
-			time.Sleep(300 * time.Millisecond) // Пауза между отправками
 		}
 
 	}
@@ -36,7 +34,7 @@ func CreateStructs(ctx context.Context, dataChan chan<- model.Storable) {
 
 // функция, которая читает из DataChan и сохраняет данные в репозиторий
 
-func ProcessDataChan(ctx context.Context, dataChan <-chan model.Storable) {
+func ProcessDataChan(dataChan <-chan model.Storable) {
 	for {
 		select {
 		case s, ok := <-dataChan:
@@ -44,8 +42,6 @@ func ProcessDataChan(ctx context.Context, dataChan <-chan model.Storable) {
 				return
 			}
 			repository.SaveStorable(s)
-		case <-ctx.Done():
-			return
 		}
 	}
 }
@@ -63,7 +59,7 @@ func Logger(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		default:
+		case <-time.After(200 * time.Millisecond):
 			orders := repository.GetOrders() // вызов функции, возвращаем копию среза и сохраняем в переменную
 			ordersCount := len(orders)
 			newOrders := orders[lastOrdersIndex:ordersCount]
@@ -112,7 +108,5 @@ func Logger(ctx context.Context) {
 				lastWarehousesIndex = warehousesCount
 			}
 		}
-
-		time.Sleep(200 * time.Millisecond)
 	}
 }

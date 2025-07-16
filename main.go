@@ -36,7 +36,7 @@ func main() {
 	wgSaSt.Add(1) // запуск хранителя в репозиторий
 	go func() {
 		defer wgSaSt.Done()
-		service.ProcessDataChan(ctx, dataChan)
+		service.ProcessDataChan(dataChan)
 	}()
 
 	<-ctx.Done() // ждем сигнала ОС
