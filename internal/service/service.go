@@ -31,7 +31,8 @@ func CreateStructs(ctx context.Context, dataChan chan<- model.Storable) {
 	}
 }
 
-// функция, которая читает из DataChan и сохраняет данные в репозиторий
+// функция, которая читает из DataChan и сохраняет данные в репозиторий через бесконечный цикл
+// его останавливает закрытие канала dataChan
 
 func ProcessDataChan(dataChan <-chan model.Storable) {
 	for s := range dataChan {
