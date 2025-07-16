@@ -28,21 +28,14 @@ func CreateStructs(ctx context.Context, dataChan chan<- model.Storable) {
 			warehouse := model.NewWarehouse(543, "order-783", 0)
 			dataChan <- warehouse
 		}
-
 	}
 }
 
 // функция, которая читает из DataChan и сохраняет данные в репозиторий
 
 func ProcessDataChan(dataChan <-chan model.Storable) {
-	for {
-		select {
-		case s, ok := <-dataChan:
-			if !ok {
-				return
-			}
-			repository.SaveStorable(s)
-		}
+	for s := range dataChan {
+		repository.SaveStorable(s)
 	}
 }
 
