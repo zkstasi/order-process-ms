@@ -1,51 +1,34 @@
 package model
 
+import (
+	"time"
+)
+
 type DeliveryStatus int
 
 type Delivery struct {
-	id      int    // Уникальный идентификатор доставки
-	orderId string // ID заказа
-	userId  string // ID клиента
-	address string // Адрес доставки
-	status  DeliveryStatus
+	Id      int64          `json:"id"`      // Уникальный идентификатор доставки
+	OrderId string         `json:"OrderId"` // ID заказа
+	UserId  string         `json:"UserId"`  // ID клиента
+	Address string         `json:"Address"` // Адрес доставки
+	Status  DeliveryStatus `json:"status"`  // Статус доставки
 }
 
 // NewDelivery создаёт новую доставку с заданными параметрами.
 // Статус доставки устанавливается по умолчанию в 0 ("новая").
 
-func NewDelivery(id int, orderId string, userId string, address string, status DeliveryStatus) *Delivery {
+func NewDelivery(orderId string, userId string, address string, status DeliveryStatus) *Delivery {
 	return &Delivery{
-		id:      id,
-		orderId: orderId,
-		userId:  userId,
-		address: address,
-		status:  status,
+		Id:      generateDeliveryID(),
+		OrderId: orderId,
+		UserId:  userId,
+		Address: address,
+		Status:  status,
 	}
 }
 
-func (d *Delivery) Id() int {
-	return d.id
-}
-
-func (d *Delivery) OrderId() string {
-	return d.orderId
-}
-
-func (d *Delivery) UserId() string {
-	return d.userId
-}
-
-func (d *Delivery) Address() string {
-	return d.address
-}
-
-func (d *Delivery) Status() DeliveryStatus {
-	return d.status
-}
-
-func (d *Delivery) SetStatus(newStatus DeliveryStatus) {
-	d.status = newStatus
-
+func generateDeliveryID() int64 {
+	return time.Now().UnixNano()
 }
 
 // реализация интерфейса Storable

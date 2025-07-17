@@ -1,37 +1,27 @@
 package model
 
+import "time"
+
 type WarehouseStatus int
 
 type Warehouse struct {
-	id      int    // Уникальный идентификатор склада
-	orderId string // ID заказа
-	status  WarehouseStatus
+	Id      int64           `json:"id"`      // Уникальный идентификатор склада
+	OrderId string          `json:"orderId"` // ID заказа
+	Status  WarehouseStatus `json:"status"`
 }
 
 // NewWarehouse создаёт новый склад с заданным id, заказом и статусом.
 
-func NewWarehouse(id int, orderId string, status WarehouseStatus) *Warehouse {
+func NewWarehouse(orderId string, status WarehouseStatus) *Warehouse {
 	return &Warehouse{
-		id:      id,
-		orderId: orderId,
-		status:  status,
+		Id:      generateWarehouseID(),
+		OrderId: orderId,
+		Status:  status,
 	}
 }
 
-func (w *Warehouse) Id() int {
-	return w.id
-}
-
-func (w *Warehouse) OrderId() string {
-	return w.orderId
-}
-
-func (w *Warehouse) Status() WarehouseStatus {
-	return w.status
-}
-
-func (w *Warehouse) SetStatus(newStatus WarehouseStatus) {
-	w.status = newStatus
+func generateWarehouseID() int64 {
+	return time.Now().UnixNano()
 }
 
 // реализация интерфейса Storable

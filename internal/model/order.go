@@ -9,18 +9,13 @@ import (
 
 type OrderStatus int
 
-//const (
-//	OrderCreated OrderStatus = iota
-//	OrderAborted
-//)
-
 // структура для объекта Заказ
 
 type Order struct {
-	id        string      // Приватный уникальный номер заказа
-	userID    string      // Кто сделал заказ
-	status    OrderStatus // Приватный статус заказа (0-3)
-	createdAt time.Time   // Когда заказ создан
+	Id        string      `json:"id"`         // Уникальный номер заказа
+	UserID    string      `json:"user_id"`    // Кто сделал заказ
+	Status    OrderStatus `json:"status"`     // Статус заказа (0-3)
+	CreatedAt time.Time   `json:"created_at"` // Когда заказ создан
 }
 
 // NewOrder создаёт новый заказ с уникальным ID, привязанный к пользователю userID.
@@ -28,35 +23,11 @@ type Order struct {
 
 func NewOrder(newUserId string) *Order {
 	return &Order{
-		id:        generateUniqID(),
-		userID:    newUserId,
-		status:    OrderStatus(0),
-		createdAt: time.Now(),
+		Id:        generateUniqID(),
+		UserID:    newUserId,
+		Status:    OrderStatus(0),
+		CreatedAt: time.Now(),
 	}
-}
-
-// методы для получения полей структуры
-
-func (o *Order) Id() string {
-	return o.id
-}
-
-func (o *Order) UserId() string {
-	return o.userID
-}
-
-func (o *Order) Status() OrderStatus {
-	return o.status
-}
-
-func (o *Order) CreatedAt() time.Time {
-	return o.createdAt
-}
-
-// метод для изменения поля статус
-
-func (o *Order) SetStatus(newStatus OrderStatus) {
-	o.status = newStatus
 }
 
 // функция для генерации id заказа

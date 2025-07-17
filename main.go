@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"order-ms/internal/model"
+	"order-ms/internal/repository"
 	"order-ms/internal/service"
 	"os/signal"
 	"sync"
@@ -10,6 +11,8 @@ import (
 )
 
 func main() {
+
+	repository.LoadAllData() // загружаем все из файлов при запуске
 
 	//создание контекста, который отменится, когда пользователь нажмет Ctrl+C или придет другой сигнал завершения
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -47,4 +50,6 @@ func main() {
 	wgSaSt.Wait()   // ждем завершения ProcessDataChan
 
 	wgLog.Wait() // Ждем завершения Logger
+
+	repository.SaveAllData()
 }
