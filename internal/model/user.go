@@ -1,29 +1,26 @@
 package model
 
+import (
+	"fmt"
+	"time"
+)
+
 type User struct {
-	id   string // Приватный уникальный номер пользователя
-	name string // Имя пользователя
+	Id   string `json:"id"`   // Уникальный номер пользователя
+	Name string `json:"name"` // Имя пользователя
 }
 
 // NewUser создаёт нового пользователя с заданным id и именем.
 
-func NewUser(newID string, newName string) *User {
+func NewUser(newName string) *User {
 	return &User{
-		id:   newID,
-		name: newName,
+		Id:   generateUserID(),
+		Name: newName,
 	}
 }
 
-func (u *User) Id() string {
-	return u.id
-}
-
-func (u *User) Name() string {
-	return u.name
-}
-
-func (u *User) SetName(newName string) {
-	u.name = newName
+func generateUserID() string {
+	return fmt.Sprintf("User-%d", time.Now().UnixNano())
 }
 
 // реализация интерфейса Storable

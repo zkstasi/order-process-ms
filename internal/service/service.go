@@ -16,16 +16,21 @@ func CreateStructs(ctx context.Context, dataChan chan<- model.Storable) {
 		case <-ctx.Done(): // Контекст отменен, нужно завершить работу
 			return
 		case <-time.After(200 * time.Millisecond): // контекст отменяется без искусственной задержки
-			order := model.NewOrder("user123")
-			dataChan <- order
 
-			user := model.NewUser("user123", "Петя")
+			// создаем пользователя
+			user := model.NewUser("Петя")
 			dataChan <- user
 
-			delivery := model.NewDelivery(65, "order-783", "user123", "ул. Ленина", 0)
+			// создаем заказ с id пользователя
+			order := model.NewOrder(user.Id)
+			dataChan <- order
+
+			// создаем доставку с id заказа и пользователя
+			delivery := model.NewDelivery(order.Id, user.Id, "ул. Ленина", 0)
 			dataChan <- delivery
 
-			warehouse := model.NewWarehouse(543, "order-783", 0)
+			// создаем склад с id заказа
+			warehouse := model.NewWarehouse(order.Id, 0)
 			dataChan <- warehouse
 		}
 	}
@@ -61,7 +66,7 @@ func Logger(ctx context.Context) {
 			if len(newOrders) > 0 {
 				fmt.Printf("New orders: %d\n", len(newOrders))
 				for _, o := range newOrders {
-					fmt.Printf("Order ID: %s, UserID: %s, Status: %d, CreatedAt: %s\n", o.Id(), o.UserId(), o.Status(), o.CreatedAt())
+					fmt.Printf("Order ID: %s, UserID: %s, Status: %d, CreatedAt: %s\n", o.Id, o.UserID, o.Status, o.CreatedAt)
 				}
 				lastOrdersIndex = ordersCount
 			}
@@ -73,7 +78,7 @@ func Logger(ctx context.Context) {
 			if len(newUsers) > 0 {
 				fmt.Printf("New users: %d\n", len(newUsers))
 				for _, u := range newUsers {
-					fmt.Printf("User ID: %s, Name: %s\n", u.Id(), u.Name())
+					fmt.Printf("User ID: %s, Name: %s\n", u.Id, u.Name)
 				}
 				lastUsersIndex = usersCount
 			}
@@ -85,7 +90,7 @@ func Logger(ctx context.Context) {
 			if len(newDeliveries) > 0 {
 				fmt.Printf("New deliveries: %d\n", len(newDeliveries))
 				for _, d := range newDeliveries {
-					fmt.Printf("Delivery ID: %d, OrderID: %s, UserID: %s, Address: %s, Status: %d\n", d.Id(), d.OrderId(), d.UserId(), d.Address(), d.Status())
+					fmt.Printf("Delivery ID: %d, OrderID: %s, UserID: %s, Address: %s, Status: %d\n", d.Id, d.OrderId, d.UserId, d.Address, d.Status)
 				}
 				lastDeliveriesIndex = deliveriesCount
 			}
@@ -97,7 +102,7 @@ func Logger(ctx context.Context) {
 			if len(newWarehouses) > 0 {
 				fmt.Printf("New warehouses: %d\n", len(newWarehouses))
 				for _, w := range newWarehouses {
-					fmt.Printf("Warehouse ID: %d, OrderID: %s, Status: %d\n", w.Id(), w.OrderId(), w.Status())
+					fmt.Printf("Warehouse ID: %d, OrderID: %s, Status: %d\n", w.Id, w.OrderId, w.Status)
 				}
 				lastWarehousesIndex = warehousesCount
 			}
