@@ -2,6 +2,9 @@ package main
 
 import (
 	"context"
+	"log"
+	"net/http"
+	"order-ms/internal/handler"
 	"order-ms/internal/model"
 	"order-ms/internal/repository"
 	"order-ms/internal/service"
@@ -24,6 +27,9 @@ func main() {
 	var wgCrSt sync.WaitGroup
 	var wgSaSt sync.WaitGroup
 
+	h := handler.Handler{} // создаем обработчик
+	h.InitRoutes()
+
 	wgLog.Add(1) // запуск логирования
 	go func() {
 		defer wgLog.Done()
@@ -40,6 +46,14 @@ func main() {
 	go func() {
 		defer wgSaSt.Done()
 		service.ProcessDataChan(dataChan)
+	}()
+
+	go func() {
+		log.Println("HTTP server is running on :8080")
+		err := http.ListenAndServe(":8080", nil)
+		if err != nil {
+			log.Fatalf("Failed to start server: %v", err)
+		}
 	}()
 
 	<-ctx.Done() // ждем сигнала ОС
