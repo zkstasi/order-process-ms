@@ -14,6 +14,16 @@ type Server struct {
 	httpServer *http.Server // Указатель на стандартный http-сервер
 }
 
+// Структура для парсинга, какие поля ожидаем в json-запросе
+type createOrderRequest struct {
+	UserID string `json:"user_id"`
+}
+
+// cтруктура для PUT-запроса (обновления)
+type updateOrderStatus struct {
+	Status model.OrderStatus `json:"status"`
+}
+
 // создание нового сервера
 
 func NewServer(address string) *Server {
@@ -29,15 +39,10 @@ func NewServer(address string) *Server {
 
 func (s *Server) Start() error {
 	http.HandleFunc("/api/orders", s.handleOrders) // связь url с методом-обработчиком handleCreateOrder
-	http.HandleFunc("/api/orders/", s.handleGetOrderByID)
+	http.HandleFunc("/api/orders/", s.handleOrderByID)
 
 	log.Printf("Server starting on %s\n", s.address)
 	return s.httpServer.ListenAndServe() // запускает сервер и блокирует при ошибке
-}
-
-// Структура для парсинга, какие поля ожидаем в json-запросе
-type createOrderRequest struct {
-	UserID string `json:"user_id"`
 }
 
 // Обработчик POST-запроса ("ручка"), вызывается когда приходит запрос
@@ -86,28 +91,54 @@ func (s *Server) handleOrders(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Обработчик GET c ID
-func (s *Server) handleGetOrderByID(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
+func (s *Server) handleOrderByID(w http.ResponseWriter, r *http.Request) {
 	// получаем id из пути /api/orders/{id}
 	id := r.URL.Path[len("/api/orders/"):] // вырезаем часть после "/api/orders/"
 	if id == "" {
 		http.Error(w, "Missing order ID", http.StatusBadRequest)
 		return
 	}
-	// ищем заказ
-	order := repository.GetOrderByID(id)
-	if order == nil {
-		http.Error(w, "Order not found", http.StatusNotFound)
-		return
-	}
-	// отправляем json
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(order); err != nil {
-		http.Error(w, "Failed to encode order", http.StatusInternalServerError)
-		return
+
+	switch r.Method {
+	case "GET":
+		// ищем заказ
+		order := repository.GetOrderByID(id)
+		if order == nil {
+			http.Error(w, "Order not found", http.StatusNotFound)
+			return
+		}
+		// отправляем json
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(order); err != nil {
+			http.Error(w, "Failed to encode order", http.StatusInternalServerError)
+			return
+		}
+	case "PUT":
+		body, err := io.ReadAll(r.Body)
+		defer r.Body.Close()
+		if err != nil {
+			http.Error(w, "Failed to read body", http.StatusBadRequest)
+			return
+		}
+		var req updateOrderStatus
+		if err := json.Unmarshal(body, &req); err != nil {
+			http.Error(w, "Invalid JSON", http.StatusBadRequest)
+			return
+		}
+		ok := repository.UpdateOrderStatus(id, req.Status)
+		if !ok {
+			http.Error(w, "Order not found", http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	case "DELETE":
+		ok := repository.DeleteOrder(id)
+		if !ok {
+			http.Error(w, "Order not found", http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
 }

@@ -303,3 +303,30 @@ func GetOrderByID(id string) *model.Order {
 	}
 	return nil
 }
+
+// метод обновления статуса заказа
+
+func UpdateOrderStatus(orderId string, status model.OrderStatus) bool {
+	order := GetOrderByID(orderId)
+	if order == nil {
+		return false
+	} else {
+		order.Status = status
+	}
+	return true
+}
+
+// метод удаления заказа
+
+func DeleteOrder(orderId string) bool {
+	muOrders.Lock()
+	defer muOrders.Unlock()
+	for i, order := range orders {
+		if order.Id == orderId {
+			orders = append(orders[:i], orders[i+1:]...)
+			_ = SaveOrdersToFile("data/orders.json")
+			return true
+		}
+	}
+	return false
+}
