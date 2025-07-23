@@ -3,11 +3,9 @@ package main
 import (
 	"context"
 	"log"
-	"net/http"
-	"order-ms/internal/handler"
-	"order-ms/internal/model"
 	"order-ms/internal/repository"
 	"order-ms/internal/service"
+	"order-ms/internal/web"
 	"os/signal"
 	"sync"
 	"syscall"
@@ -21,14 +19,11 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop() // освобождаем ресурсы
 
-	dataChan := make(chan model.Storable)
+	//dataChan := make(chan model.Storable)
 
 	var wgLog sync.WaitGroup
-	var wgCrSt sync.WaitGroup
-	var wgSaSt sync.WaitGroup
-
-	h := handler.Handler{} // создаем обработчик
-	h.InitRoutes()
+	//var wgCrSt sync.WaitGroup
+	//var wgSaSt sync.WaitGroup
 
 	wgLog.Add(1) // запуск логирования
 	go func() {
@@ -36,32 +31,33 @@ func main() {
 		service.Logger(ctx)
 	}()
 
-	wgCrSt.Add(1) //запуск создателя структур
-	go func() {
-		defer wgCrSt.Done()
-		service.CreateStructs(ctx, dataChan)
-	}()
+	//wgCrSt.Add(1) //запуск создателя структур
+	//go func() {
+	//	defer wgCrSt.Done()
+	//	service.CreateStructs(ctx, dataChan)
+	//}()
+	//
+	//wgSaSt.Add(1) // запуск хранителя в репозиторий
+	//go func() {
+	//	defer wgSaSt.Done()
+	//	service.ProcessDataChan(dataChan)
+	//}()
 
-	wgSaSt.Add(1) // запуск хранителя в репозиторий
-	go func() {
-		defer wgSaSt.Done()
-		service.ProcessDataChan(dataChan)
-	}()
+	// запуск http-сервера
 
+	webServer := web.NewServer(":8080")
 	go func() {
-		log.Println("HTTP server is running on :8080")
-		err := http.ListenAndServe(":8080", nil)
-		if err != nil {
-			log.Fatalf("Failed to start server: %v", err)
+		if err := webServer.Start(); err != nil {
+			log.Printf("Server start error: %v\n", err)
 		}
 	}()
 
 	<-ctx.Done() // ждем сигнала ОС
 
-	wgCrSt.Wait() // ждем завершения CreateStructs
+	//wgCrSt.Wait() // ждем завершения CreateStructs
 
-	close(dataChan) // закрываем канал для ProcessDataChan
-	wgSaSt.Wait()   // ждем завершения ProcessDataChan
+	//close(dataChan) // закрываем канал для ProcessDataChan
+	//wgSaSt.Wait()   // ждем завершения ProcessDataChan
 
 	wgLog.Wait() // Ждем завершения Logger
 

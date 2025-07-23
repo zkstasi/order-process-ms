@@ -290,3 +290,16 @@ func LoadAllData() {
 	}
 	fmt.Println("Данные успешно загружены")
 }
+
+// метод, который ищет заказ по id
+
+func GetOrderByID(id string) *model.Order {
+	muOrders.Lock()
+	defer muOrders.Unlock()
+	for _, order := range orders {
+		if order.Id == id {
+			return order
+		}
+	}
+	return nil
+}
