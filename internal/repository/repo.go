@@ -320,11 +320,13 @@ func UpdateOrderStatus(orderId string, status model.OrderStatus) bool {
 
 func DeleteOrder(orderId string) bool {
 	muOrders.Lock()
-	defer muOrders.Unlock()
 	for i, order := range orders {
 		if order.Id == orderId {
 			orders = append(orders[:i], orders[i+1:]...)
-			_ = SaveOrdersToFile("data/orders.json")
+			muOrders.Unlock()
+			if err := SaveOrdersToFile("data/orders.json"); err != nil {
+				fmt.Println("Ошибка при сохранении заказов:", err)
+			}
 			return true
 		}
 	}
