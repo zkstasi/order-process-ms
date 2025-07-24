@@ -61,6 +61,9 @@ func Logger(ctx context.Context) {
 		case <-time.After(200 * time.Millisecond):
 			orders := repository.GetOrders() // вызов функции, возвращаем копию среза и сохраняем в переменную
 			ordersCount := len(orders)
+			if lastOrdersIndex > ordersCount {
+				lastOrdersIndex = ordersCount
+			}
 			newOrders := orders[lastOrdersIndex:ordersCount]
 
 			if len(newOrders) > 0 {
@@ -73,6 +76,9 @@ func Logger(ctx context.Context) {
 
 			users := repository.GetUsers()
 			usersCount := len(users)
+			if lastUsersIndex > usersCount {
+				lastUsersIndex = usersCount
+			}
 			newUsers := users[lastUsersIndex:usersCount]
 
 			if len(newUsers) > 0 {
@@ -85,6 +91,9 @@ func Logger(ctx context.Context) {
 
 			deliveries := repository.GetDeliveries()
 			deliveriesCount := len(deliveries)
+			if lastDeliveriesIndex > deliveriesCount {
+				lastDeliveriesIndex = deliveriesCount
+			}
 			newDeliveries := deliveries[lastDeliveriesIndex:deliveriesCount]
 
 			if len(newDeliveries) > 0 {
@@ -97,6 +106,9 @@ func Logger(ctx context.Context) {
 
 			warehouses := repository.GetWarehouses()
 			warehousesCount := len(warehouses)
+			if lastWarehousesIndex > warehousesCount {
+				lastWarehousesIndex = warehousesCount
+			}
 			newWarehouses := warehouses[lastWarehousesIndex:warehousesCount]
 
 			if len(newWarehouses) > 0 {

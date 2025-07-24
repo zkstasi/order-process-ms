@@ -290,3 +290,81 @@ func LoadAllData() {
 	}
 	fmt.Println("Данные успешно загружены")
 }
+
+// метод, который ищет заказ по id
+
+func GetOrderByID(id string) *model.Order {
+	muOrders.Lock()
+	defer muOrders.Unlock()
+	for _, order := range orders {
+		if order.Id == id {
+			return order
+		}
+	}
+	return nil
+}
+
+// метод обновления статуса заказа
+
+func UpdateOrderStatus(orderId string, status model.OrderStatus) bool {
+	order := GetOrderByID(orderId)
+	if order == nil {
+		return false
+	} else {
+		order.Status = status
+	}
+	return true
+}
+
+// метод удаления заказа
+
+func DeleteOrder(orderId string) bool {
+	muOrders.Lock()
+	for i, order := range orders {
+		if order.Id == orderId {
+			orders = append(orders[:i], orders[i+1:]...)
+			muOrders.Unlock()
+			if err := SaveOrdersToFile("data/orders.json"); err != nil {
+				fmt.Println("Ошибка при сохранении заказов:", err)
+			}
+			return true
+		}
+	}
+	return false
+}
+
+func GetUserByID(id string) *model.User {
+	muUsers.Lock()
+	defer muUsers.Unlock()
+	for _, user := range users {
+		if user.Id == id {
+			return user
+		}
+	}
+	return nil
+}
+
+func UpdateUserName(id, Name string) bool {
+	user := GetUserByID(id)
+	if user == nil {
+		return false
+	} else {
+		user.Name = Name
+	}
+	return true
+}
+
+func DeleteUser(id string) bool {
+	muUsers.Lock()
+	for i, user := range users {
+		if user.Id == id {
+			users = append(users[:i], users[i+1:]...)
+			muUsers.Unlock()
+			if err := SaveUsersToFile("data/users.json"); err != nil {
+				fmt.Println("Ошибка при сохранении пользователей:", err)
+			}
+			return true
+		}
+	}
+	return false
+}
