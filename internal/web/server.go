@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"order-ms/internal/model"
 	"order-ms/internal/repository"
+	"time"
 )
 
 type Server struct {
@@ -35,22 +36,30 @@ type updateUserRequest struct {
 // создание нового сервера
 
 func NewServer(address string) *Server {
-	return &Server{
+	mux := http.NewServeMux() // создаем локальный маршрутизатор
+
+	s := &Server{
 		address: address,
 		httpServer: &http.Server{
-			Addr: address,
+			Addr:         address,
+			Handler:      mux,
+			ReadTimeout:  10 * time.Second, // сколько времени сервер ждёт запрос от клиента (например, тело запроса)
+			WriteTimeout: 10 * time.Second, // сколько времени дается серверу на отправку ответа клиенту
+			IdleTimeout:  60 * time.Second, // время ожидания между запросами, если клиент держит соединение открытым
 		},
 	}
+	//регистрируем эндпоинты (маршруты) в mux, по которым будут обрабатываться запросы
+	mux.HandleFunc("/api/orders", s.handleOrders) // связь url с методом-обработчиком
+	mux.HandleFunc("/api/orders/", s.handleOrderByID)
+	mux.HandleFunc("/api/users", s.handleUsers)
+	mux.HandleFunc("/api/users/", s.handleUserByID)
+
+	return s
 }
 
-// метод запуска http-сервера, регистрируем эндпоинты (маршруты), по которым будут обрабатываться запросы
+// метод запуска http-сервера
 
 func (s *Server) Start() error {
-	http.HandleFunc("/api/orders", s.handleOrders) // связь url с методом-обработчиком
-	http.HandleFunc("/api/orders/", s.handleOrderByID)
-	http.HandleFunc("/api/users", s.handleUsers)
-	http.HandleFunc("/api/users/", s.handleUserByID)
-
 	log.Printf("Server starting on %s\n", s.address)
 	return s.httpServer.ListenAndServe() // запускает сервер и блокирует при ошибке
 }

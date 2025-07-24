@@ -19,11 +19,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop() // освобождаем ресурсы
 
-	//dataChan := make(chan model.Storable)
-
 	var wgLog sync.WaitGroup
-	//var wgCrSt sync.WaitGroup
-	//var wgSaSt sync.WaitGroup
 
 	wgLog.Add(1) // запуск логирования
 	go func() {
@@ -31,20 +27,7 @@ func main() {
 		service.Logger(ctx)
 	}()
 
-	//wgCrSt.Add(1) //запуск создателя структур
-	//go func() {
-	//	defer wgCrSt.Done()
-	//	service.CreateStructs(ctx, dataChan)
-	//}()
-	//
-	//wgSaSt.Add(1) // запуск хранителя в репозиторий
-	//go func() {
-	//	defer wgSaSt.Done()
-	//	service.ProcessDataChan(dataChan)
-	//}()
-
 	// запуск http-сервера
-
 	webServer := web.NewServer(":8080")
 	go func() {
 		if err := webServer.Start(); err != nil {
@@ -53,12 +36,6 @@ func main() {
 	}()
 
 	<-ctx.Done() // ждем сигнала ОС
-
-	//wgCrSt.Wait() // ждем завершения CreateStructs
-
-	//close(dataChan) // закрываем канал для ProcessDataChan
-	//wgSaSt.Wait()   // ждем завершения ProcessDataChan
-
 	wgLog.Wait() // Ждем завершения Logger
 
 	repository.SaveAllData()
