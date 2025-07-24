@@ -19,9 +19,17 @@ type createOrderRequest struct {
 	UserID string `json:"user_id"`
 }
 
+type createUserRequest struct {
+	Name string `json:"name"`
+}
+
 // cтруктура для PUT-запроса (обновления)
 type updateOrderStatus struct {
 	Status model.OrderStatus `json:"status"`
+}
+
+type updateUserRequest struct {
+	Name string `json:"name"`
 }
 
 // создание нового сервера
@@ -35,11 +43,13 @@ func NewServer(address string) *Server {
 	}
 }
 
-// метод запуска http-сервера
+// метод запуска http-сервера, регистрируем эндпоинты (маршруты), по которым будут обрабатываться запросы
 
 func (s *Server) Start() error {
-	http.HandleFunc("/api/orders", s.handleOrders) // связь url с методом-обработчиком handleCreateOrder
+	http.HandleFunc("/api/orders", s.handleOrders) // связь url с методом-обработчиком
 	http.HandleFunc("/api/orders/", s.handleOrderByID)
+	http.HandleFunc("/api/users", s.handleUsers)
+	http.HandleFunc("/api/users/", s.handleUserByID)
 
 	log.Printf("Server starting on %s\n", s.address)
 	return s.httpServer.ListenAndServe() // запускает сервер и блокирует при ошибке
@@ -138,6 +148,95 @@ func (s *Server) handleOrderByID(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "POST":
+		body, err := io.ReadAll(r.Body)
+		defer r.Body.Close()
+		if err != nil {
+			http.Error(w, "Failed to read body", http.StatusBadRequest)
+			return
+		}
+		var req createUserRequest
+		if err := json.Unmarshal(body, &req); err != nil {
+			http.Error(w, "Invalid JSON", http.StatusBadRequest)
+			return
+		}
+		if req.Name == "" {
+			http.Error(w, "Name is required", http.StatusBadRequest)
+			return
+		}
+		user := model.NewUser(req.Name)
+		repository.SaveStorable(user)
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(user); err != nil {
+			http.Error(w, "Failed to encode user", http.StatusInternalServerError)
+			return
+		}
+	case "GET":
+		users := repository.GetUsers()
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(users); err != nil {
+			http.Error(w, "Failed to encode users", http.StatusInternalServerError)
+			return
+		}
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+func (s *Server) handleUserByID(w http.ResponseWriter, r *http.Request) {
+	// Извлекаем id из URL (/api/users/{id})
+	id := r.URL.Path[len("/api/users/"):]
+	if id == "" {
+		http.Error(w, "Missing user ID", http.StatusBadRequest)
+		return
+	}
+	switch r.Method {
+	case "GET":
+		// ищем пользователя по id
+		user := repository.GetUserByID(id)
+		if user == nil {
+			http.Error(w, "User not found", http.StatusNotFound)
+			return
+		}
+		// кодируем пользователя в json и отправляем ответ
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(user); err != nil {
+			http.Error(w, "Failed to encode user", http.StatusInternalServerError)
+			return
+		}
+	case "PUT":
+		body, err := io.ReadAll(r.Body)
+		defer r.Body.Close()
+		if err != nil {
+			http.Error(w, "Failed to read body", http.StatusBadRequest)
+			return
+		}
+		var req updateUserRequest
+		if err := json.Unmarshal(body, &req); err != nil {
+			http.Error(w, "Invalid JSON", http.StatusBadRequest)
+			return
+		}
+		ok := repository.UpdateUserName(id, req.Name)
+		if !ok {
+			http.Error(w, "User not found", http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+
+	case "DELETE":
+		ok := repository.DeleteUser(id)
+		if !ok {
+			http.Error(w, "User not found", http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}

@@ -332,3 +332,39 @@ func DeleteOrder(orderId string) bool {
 	}
 	return false
 }
+
+func GetUserByID(id string) *model.User {
+	muUsers.Lock()
+	defer muUsers.Unlock()
+	for _, user := range users {
+		if user.Id == id {
+			return user
+		}
+	}
+	return nil
+}
+
+func UpdateUserName(id, Name string) bool {
+	user := GetUserByID(id)
+	if user == nil {
+		return false
+	} else {
+		user.Name = Name
+	}
+	return true
+}
+
+func DeleteUser(id string) bool {
+	muUsers.Lock()
+	for i, user := range users {
+		if user.Id == id {
+			users = append(users[:i], users[i+1:]...)
+			muUsers.Unlock()
+			if err := SaveUsersToFile("data/users.json"); err != nil {
+				fmt.Println("Ошибка при сохранении пользователей:", err)
+			}
+			return true
+		}
+	}
+	return false
+}
