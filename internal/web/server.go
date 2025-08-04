@@ -51,6 +51,9 @@ func NewServer(address string) *Server {
 	//регистрируем эндпоинты (маршруты) в mux, по которым будут обрабатываться запросы
 	mux.HandleFunc("/api/orders", s.handleOrders) // связь url с методом-обработчиком
 	mux.HandleFunc("/api/orders/", s.handleOrderByID)
+	mux.HandleFunc("/api/orders/confirm/", s.handleOrderConfirm)
+	mux.HandleFunc("/api/orders/delivery/", s.handleOrderDelivery)
+	mux.HandleFunc("/api/orders/cancel/", s.handleOrderCancel)
 	mux.HandleFunc("/api/users", s.handleUsers)
 	mux.HandleFunc("/api/users/", s.handleUserByID)
 
@@ -144,7 +147,7 @@ func (s *Server) handleOrderByID(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Invalid JSON", http.StatusBadRequest)
 			return
 		}
-		ok := repository.UpdateOrderStatus(id, req.Status)
+		ok := repository.ConfirmOrder(id)
 		if !ok {
 			http.Error(w, "Order not found", http.StatusNotFound)
 			return
@@ -159,6 +162,89 @@ func (s *Server) handleOrderByID(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+// Обработчик запрос POST на подтверждение заказа
+func (s *Server) handleOrderConfirm(w http.ResponseWriter, r *http.Request) {
+	// извлекаем id заказа
+	id := r.URL.Path[len("/api/orders/confirm/"):]
+	//проверка: передан ли id
+	if id == "" {
+		http.Error(w, "Missing order ID", http.StatusBadRequest)
+		return
+	}
+	switch r.Method {
+	case "POST":
+		// находим заказ в хранилище по его id
+		order := repository.GetOrderByID(id)
+		// если заказ не найден, возвращаем ошибку
+		if order == nil {
+			http.Error(w, "Order not found", http.StatusNotFound)
+			return
+		}
+		// проверяем, можно ли подтвердить заказ
+		if order.Status != model.OrderCreated {
+			http.Error(w, "Order must be in 'created' status to confirm", http.StatusBadRequest)
+			return
+		}
+		// меняем статус заказа на "1"
+		repository.ConfirmOrder(id)
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *Server) handleOrderDelivery(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Path[len("/api/orders/delivery/"):]
+	if id == "" {
+		http.Error(w, "Missing order ID", http.StatusBadRequest)
+		return
+	}
+	switch r.Method {
+	case "POST":
+		order := repository.GetOrderByID(id)
+		if order == nil {
+			http.Error(w, "Order not found", http.StatusNotFound)
+			return
+		}
+		if order.Status != model.OrderConfirmed {
+			http.Error(w, "Order must be in 'confirmed' status to be delivered", http.StatusBadRequest)
+			return
+		}
+		repository.DeliveredOrder(id)
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *Server) handleOrderCancel(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Path[len("/api/orders/cancel/"):]
+	if id == "" {
+		http.Error(w, "Missing order ID", http.StatusBadRequest)
+		return
+	}
+	switch r.Method {
+	case "POST":
+		order := repository.GetOrderByID(id)
+		if order == nil {
+			http.Error(w, "Order not found", http.StatusNotFound)
+			return
+		}
+		if order.Status != model.OrderCreated && order.Status != model.OrderConfirmed {
+			http.Error(w, "Only orders with status 'created' or 'confirmed' can be cancelled", http.StatusBadRequest)
+			return
+		}
+		ok := repository.CancelOrder(id)
+		if !ok {
+			http.Error(w, "Failed to cancel order", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
 }
 
