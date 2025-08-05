@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	httpSwagger "github.com/swaggo/http-swagger"
 	"io"
 	"log"
 	"net/http"
@@ -51,6 +52,7 @@ func NewServer(address string) *Server {
 	mux.HandleFunc("/api/orders/cancel/", s.handleOrderCancel)
 	mux.HandleFunc("/api/users", s.handleUsers)
 	mux.HandleFunc("/api/users/", s.handleUserByID)
+	mux.Handle("/swagger/", httpSwagger.WrapHandler)
 
 	return s
 }
