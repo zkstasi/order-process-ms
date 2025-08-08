@@ -1,8 +1,15 @@
+// @title Order Processing API
+// @version 1.0
+// @description API для управления пользователями и заказами
+// @host localhost:8080
+// @BasePath /
+
 package main
 
 import (
 	"context"
 	"log"
+	_ "order-ms/docs"
 	"order-ms/internal/repository"
 	"order-ms/internal/service"
 	"order-ms/internal/web"

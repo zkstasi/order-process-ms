@@ -1,0 +1,398 @@
+basePath: /
+definitions:
+  model.Order:
+    properties:
+      created_at:
+        description: Когда заказ создан
+        type: string
+      id:
+        description: Уникальный номер заказа
+        type: string
+      status:
+        allOf:
+        - $ref: '#/definitions/model.OrderStatus'
+        description: Статус заказа (0-3)
+      user_id:
+        description: Кто сделал заказ
+        type: string
+    type: object
+  model.OrderStatus:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 3
+    type: integer
+    x-enum-comments:
+      OrderCancelled: Заказ отменен
+      OrderConfirmed: Заказ подтвержден складом
+      OrderDelivered: Подтверждена доставка
+    x-enum-descriptions:
+    - ""
+    - Заказ подтвержден складом
+    - Подтверждена доставка
+    - Заказ отменен
+    x-enum-varnames:
+    - OrderCreated
+    - OrderConfirmed
+    - OrderDelivered
+    - OrderCancelled
+  model.User:
+    properties:
+      id:
+        description: Уникальный номер пользователя
+        type: string
+      name:
+        description: Имя пользователя
+        type: string
+    type: object
+  web.createOrderRequest:
+    properties:
+      user_id:
+        type: string
+    type: object
+  web.createUserRequest:
+    properties:
+      name:
+        type: string
+    type: object
+  web.updateUserRequest:
+    properties:
+      name:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: API для управления пользователями и заказами
+  title: Order Processing API
+  version: "1.0"
+paths:
+  /api/orders:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает все созданные заказы
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список заказов
+          schema:
+            items:
+              $ref: '#/definitions/model.Order'
+            type: array
+        "500":
+          description: Ошибка кодирования ответа
+          schema:
+            type: object
+      summary: Получить список заказов
+      tags:
+      - Orders
+    post:
+      consumes:
+      - application/json
+      description: Создает новый заказ пользователя с переданным userID
+      parameters:
+      - description: User ID
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/web.createOrderRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Созданный заказ
+          schema:
+            $ref: '#/definitions/model.Order'
+        "400":
+          description: Неверный JSON или не указан user ID
+          schema:
+            type: object
+        "500":
+          description: Ошибка кодирования ответа
+          schema:
+            type: object
+      summary: Создать заказ
+      tags:
+      - Orders
+  /api/orders/{id}:
+    delete:
+      description: Удаляет заказ с указанным ID
+      parameters:
+      - description: ID заказа
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: Заказ успешно удален
+        "400":
+          description: Некорректный ID
+          schema:
+            type: object
+        "404":
+          description: Заказ не найден
+          schema:
+            type: object
+      summary: Удалить заказ
+      tags:
+      - Orders
+    get:
+      consumes:
+      - application/json
+      description: Возвращает заказ с указанным ID
+      parameters:
+      - description: ID заказа
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Найденный заказ
+          schema:
+            $ref: '#/definitions/model.Order'
+        "400":
+          description: Некорректный ID
+          schema:
+            type: object
+        "404":
+          description: Заказ не найден
+          schema:
+            type: object
+      summary: Получить заказ по ID
+      tags:
+      - Orders
+  /api/orders/cancel/{id}:
+    post:
+      consumes:
+      - application/json
+      description: Отменяет заказ, если он в статусе "создан" или "подтвержден"
+      parameters:
+      - description: ID заказа
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content - заказ успешно отменен
+        "400":
+          description: Некорректный статус заказа для отмены
+          schema:
+            type: object
+        "404":
+          description: Заказ не найден
+          schema:
+            type: object
+        "405":
+          description: Метод не поддерживается
+          schema:
+            type: object
+      summary: Отмена заказа
+      tags:
+      - Orders
+  /api/orders/confirm/{id}:
+    post:
+      consumes:
+      - application/json
+      description: Подтверждает заказ, если он находится в статусе "создан" (0)
+      parameters:
+      - description: ID заказа
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content - успешное подтверждение
+        "400":
+          description: Некорректный запрос или статус заказа не позволяет подтверждение
+          schema:
+            type: object
+        "404":
+          description: Заказ не найден
+          schema:
+            type: object
+      summary: Подтверждение заказа
+      tags:
+      - Orders
+  /api/orders/delivery/{id}:
+    post:
+      consumes:
+      - application/json
+      description: Переводит заказ в статус "доставлен", если он в статусе "подтвержден"
+      parameters:
+      - description: ID заказа
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content - заказ успешно доставлен
+        "400":
+          description: Некорректный запрос или заказ в нужном статусе
+          schema:
+            type: object
+        "404":
+          description: Заказ не найден
+          schema:
+            type: object
+        "405":
+          description: Метод не поддерживается
+          schema:
+            type: object
+      summary: Отметить заказ как доставленный
+      tags:
+      - Orders
+  /api/users:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает всех зарегистрированных пользователей
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список пользователей
+          schema:
+            items:
+              $ref: '#/definitions/model.User'
+            type: array
+        "500":
+          description: Ошибка кодирования ответа
+          schema:
+            type: object
+      summary: Получить список пользователей
+      tags:
+      - Users
+    post:
+      consumes:
+      - application/json
+      description: Создает нового пользователя с переданным именем
+      parameters:
+      - description: Имя пользователя
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/web.createUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Созданный пользователь
+          schema:
+            $ref: '#/definitions/model.User'
+        "400":
+          description: Неверный JSON или не указано имя
+          schema:
+            type: object
+        "500":
+          description: Ошибка кодирования ответа
+          schema:
+            type: object
+      summary: Создать пользователя
+      tags:
+      - Users
+  /api/users/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Удаляет пользователя по указанному ID
+      parameters:
+      - description: ID пользователя
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Пользователь успешно удалён
+        "404":
+          description: Пользователь не найден
+          schema:
+            type: object
+      summary: Удалить пользователя по ID
+      tags:
+      - Users
+    get:
+      consumes:
+      - application/json
+      description: Возвращает пользователя по указанному ID
+      parameters:
+      - description: ID пользователя
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Пользователь найден
+          schema:
+            $ref: '#/definitions/model.User'
+        "400":
+          description: Отсутствует или некорректный ID
+          schema:
+            type: object
+        "404":
+          description: Пользователь не найден
+          schema:
+            type: object
+        "500":
+          description: Ошибка кодирования ответа
+          schema:
+            type: object
+      summary: Получить пользователя по ID
+      tags:
+      - Users
+    put:
+      consumes:
+      - application/json
+      description: Обновляет имя пользователя по указанному ID
+      parameters:
+      - description: ID пользователя
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Новое имя пользователя
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/web.updateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Успешное обновление без тела ответа
+        "400":
+          description: Неверный JSON или некорректные данные
+          schema:
+            type: object
+        "404":
+          description: Пользователь не найден
+          schema:
+            type: object
+      summary: Обновить имя пользователя по ID
+      tags:
+      - Users
+swagger: "2.0"

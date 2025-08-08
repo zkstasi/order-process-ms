@@ -1,0 +1,598 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "API для управления пользователями и заказами",
+        "title": "Order Processing API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "host": "localhost:8080",
+    "basePath": "/",
+    "paths": {
+        "/api/orders": {
+            "get": {
+                "description": "Возвращает все созданные заказы",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Orders"
+                ],
+                "summary": "Получить список заказов",
+                "responses": {
+                    "200": {
+                        "description": "Список заказов",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.Order"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка кодирования ответа",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Создает новый заказ пользователя с переданным userID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Orders"
+                ],
+                "summary": "Создать заказ",
+                "parameters": [
+                    {
+                        "description": "User ID",
+                        "name": "user",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/web.createOrderRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Созданный заказ",
+                        "schema": {
+                            "$ref": "#/definitions/model.Order"
+                        }
+                    },
+                    "400": {
+                        "description": "Неверный JSON или не указан user ID",
+                        "schema": {
+                            "type": "object"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка кодирования ответа",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/orders/cancel/{id}": {
+            "post": {
+                "description": "Отменяет заказ, если он в статусе \"создан\" или \"подтвержден\"",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Orders"
+                ],
+                "summary": "Отмена заказа",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID заказа",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content - заказ успешно отменен"
+                    },
+                    "400": {
+                        "description": "Некорректный статус заказа для отмены",
+                        "schema": {
+                            "type": "object"
+                        }
+                    },
+                    "404": {
+                        "description": "Заказ не найден",
+                        "schema": {
+                            "type": "object"
+                        }
+                    },
+                    "405": {
+                        "description": "Метод не поддерживается",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/orders/confirm/{id}": {
+            "post": {
+                "description": "Подтверждает заказ, если он находится в статусе \"создан\" (0)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Orders"
+                ],
+                "summary": "Подтверждение заказа",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID заказа",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content - успешное подтверждение"
+                    },
+                    "400": {
+                        "description": "Некорректный запрос или статус заказа не позволяет подтверждение",
+                        "schema": {
+                            "type": "object"
+                        }
+                    },
+                    "404": {
+                        "description": "Заказ не найден",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/orders/delivery/{id}": {
+            "post": {
+                "description": "Переводит заказ в статус \"доставлен\", если он в статусе \"подтвержден\"",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Orders"
+                ],
+                "summary": "Отметить заказ как доставленный",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID заказа",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content - заказ успешно доставлен"
+                    },
+                    "400": {
+                        "description": "Некорректный запрос или заказ в нужном статусе",
+                        "schema": {
+                            "type": "object"
+                        }
+                    },
+                    "404": {
+                        "description": "Заказ не найден",
+                        "schema": {
+                            "type": "object"
+                        }
+                    },
+                    "405": {
+                        "description": "Метод не поддерживается",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/orders/{id}": {
+            "get": {
+                "description": "Возвращает заказ с указанным ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Orders"
+                ],
+                "summary": "Получить заказ по ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID заказа",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Найденный заказ",
+                        "schema": {
+                            "$ref": "#/definitions/model.Order"
+                        }
+                    },
+                    "400": {
+                        "description": "Некорректный ID",
+                        "schema": {
+                            "type": "object"
+                        }
+                    },
+                    "404": {
+                        "description": "Заказ не найден",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Удаляет заказ с указанным ID",
+                "tags": [
+                    "Orders"
+                ],
+                "summary": "Удалить заказ",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID заказа",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Заказ успешно удален"
+                    },
+                    "400": {
+                        "description": "Некорректный ID",
+                        "schema": {
+                            "type": "object"
+                        }
+                    },
+                    "404": {
+                        "description": "Заказ не найден",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/users": {
+            "get": {
+                "description": "Возвращает всех зарегистрированных пользователей",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Получить список пользователей",
+                "responses": {
+                    "200": {
+                        "description": "Список пользователей",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.User"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка кодирования ответа",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Создает нового пользователя с переданным именем",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Создать пользователя",
+                "parameters": [
+                    {
+                        "description": "Имя пользователя",
+                        "name": "user",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/web.createUserRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Созданный пользователь",
+                        "schema": {
+                            "$ref": "#/definitions/model.User"
+                        }
+                    },
+                    "400": {
+                        "description": "Неверный JSON или не указано имя",
+                        "schema": {
+                            "type": "object"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка кодирования ответа",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/users/{id}": {
+            "get": {
+                "description": "Возвращает пользователя по указанному ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Получить пользователя по ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID пользователя",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Пользователь найден",
+                        "schema": {
+                            "$ref": "#/definitions/model.User"
+                        }
+                    },
+                    "400": {
+                        "description": "Отсутствует или некорректный ID",
+                        "schema": {
+                            "type": "object"
+                        }
+                    },
+                    "404": {
+                        "description": "Пользователь не найден",
+                        "schema": {
+                            "type": "object"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка кодирования ответа",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Обновляет имя пользователя по указанному ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Обновить имя пользователя по ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID пользователя",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Новое имя пользователя",
+                        "name": "user",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/web.updateUserRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Успешное обновление без тела ответа"
+                    },
+                    "400": {
+                        "description": "Неверный JSON или некорректные данные",
+                        "schema": {
+                            "type": "object"
+                        }
+                    },
+                    "404": {
+                        "description": "Пользователь не найден",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Удаляет пользователя по указанному ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Удалить пользователя по ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID пользователя",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Пользователь успешно удалён"
+                    },
+                    "404": {
+                        "description": "Пользователь не найден",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "model.Order": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "description": "Когда заказ создан",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "Уникальный номер заказа",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "Статус заказа (0-3)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.OrderStatus"
+                        }
+                    ]
+                },
+                "user_id": {
+                    "description": "Кто сделал заказ",
+                    "type": "string"
+                }
+            }
+        },
+        "model.OrderStatus": {
+            "type": "integer",
+            "enum": [
+                0,
+                1,
+                2,
+                3
+            ],
+            "x-enum-comments": {
+                "OrderCancelled": "Заказ отменен",
+                "OrderConfirmed": "Заказ подтвержден складом",
+                "OrderDelivered": "Подтверждена доставка"
+            },
+            "x-enum-descriptions": [
+                "",
+                "Заказ подтвержден складом",
+                "Подтверждена доставка",
+                "Заказ отменен"
+            ],
+            "x-enum-varnames": [
+                "OrderCreated",
+                "OrderConfirmed",
+                "OrderDelivered",
+                "OrderCancelled"
+            ]
+        },
+        "model.User": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "description": "Уникальный номер пользователя",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Имя пользователя",
+                    "type": "string"
+                }
+            }
+        },
+        "web.createOrderRequest": {
+            "type": "object",
+            "properties": {
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "web.createUserRequest": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "web.updateUserRequest": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}

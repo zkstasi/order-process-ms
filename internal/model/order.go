@@ -9,6 +9,13 @@ import (
 
 type OrderStatus int
 
+const (
+	OrderCreated   OrderStatus = iota
+	OrderConfirmed             // Заказ подтвержден складом
+	OrderDelivered             // Подтверждена доставка
+	OrderCancelled             // Заказ отменен
+)
+
 // структура для объекта Заказ
 
 type Order struct {

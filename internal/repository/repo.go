@@ -304,15 +304,32 @@ func GetOrderByID(id string) *model.Order {
 	return nil
 }
 
-// метод обновления статуса заказа
+// методы обновления статуса заказа
 
-func UpdateOrderStatus(orderId string, status model.OrderStatus) bool {
-	order := GetOrderByID(orderId)
-	if order == nil {
+func ConfirmOrder(orderId string) bool {
+	order := GetOrderByID(orderId) // находим заказ
+	if order == nil || order.Status != model.OrderCreated {
 		return false
-	} else {
-		order.Status = status
 	}
+	order.Status = model.OrderConfirmed
+	return true
+}
+
+func DeliveredOrder(orderId string) bool {
+	order := GetOrderByID(orderId)
+	if order == nil || order.Status != model.OrderConfirmed {
+		return false
+	}
+	order.Status = model.OrderDelivered
+	return true
+}
+
+func CancelOrder(orderId string) bool {
+	order := GetOrderByID(orderId)
+	if order == nil || (order.Status != model.OrderCreated && order.Status != model.OrderConfirmed) {
+		return false
+	}
+	order.Status = model.OrderCancelled
 	return true
 }
 
