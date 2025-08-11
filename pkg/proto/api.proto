@@ -1,0 +1,109 @@
+syntax = "proto3";
+
+package proto;
+
+option go_package = "pkg/proto;proto";
+
+enum OrderStatus {
+  ORDER_CREATED = 0;
+  ORDER_CONFIRMED = 1;
+  ORDER_DELIVERED = 2;
+  ORDER_CANCELLED = 3;
+}
+
+// Сущность пользователя
+message User {
+  string id = 1;
+  string name = 2;
+}
+
+// Запрос на создание пользователя
+message CreateUserRequest {
+  string name = 1;
+}
+
+// Ответ с созданным пользователем
+message CreateUserResponse {
+  User user = 1;
+}
+
+// Запрос для получения пользователя по ID
+message GetUserRequest {
+  string id = 1;
+}
+
+// Список пользователей
+message ListUsersResponse {
+  repeated User users = 1;
+}
+
+// Запрос на обновление пользователя
+message UpdateUserRequest {
+  string id = 1;
+  string name = 2;
+}
+
+// запрос на удаление пользователя
+message DeleteUserRequest {
+  string id = 1;
+}
+
+// Пустое сообщение для подтверждения успеха
+message Empty {}
+
+// Сущность заказа
+message Order {
+  string id = 1;
+  string user_id = 2;
+  OrderStatus status = 3;
+}
+
+// Запрос на создание заказа
+message CreateOrderRequest {
+  string user_id = 1;
+}
+
+// Ответ с созданным заказом
+message CreateOrderResponse {
+  Order order = 1;
+}
+
+// Запрос для получения заказа по ID
+message GetOrderRequest {
+  string id = 1;
+}
+
+// запрос на удаление заказа
+message DeleteOrderRequest {
+  string id = 1;
+}
+
+// Список заказов
+message ListOrdersResponse {
+  repeated Order orders = 1;
+}
+
+// Запрос на обновление статуса заказа
+message UpdateOrderStatusRequest {
+  string id = 1;
+  OrderStatus status = 2;
+}
+
+// Определение сервиса
+service UserService {
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+  rpc GetUser(GetUserRequest) returns (User);
+  rpc ListUsers(Empty) returns (ListUsersResponse);
+  rpc UpdateUser(UpdateUserRequest) returns (User);
+  rpc DeleteUser(DeleteUserRequest) returns (Empty);
+}
+
+service OrderService {
+  rpc CreateOrder(CreateOrderRequest) returns (CreateOrderResponse);
+  rpc ListOrders(Empty) returns (ListOrdersResponse);
+  rpc GetOrder(GetOrderRequest) returns (Order);
+  rpc DeleteOrder(DeleteOrderRequest) returns (Empty);
+  rpc ConfirmOrder(GetOrderRequest) returns (Order);
+  rpc DeliverOrder(GetOrderRequest) returns (Order);
+  rpc CancelOrder(GetOrderRequest) returns (Empty);
+}
