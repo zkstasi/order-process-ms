@@ -4,6 +4,9 @@ package proto;
 
 option go_package = "pkg/proto;proto";
 
+
+import "google/protobuf/empty.proto";
+
 enum OrderStatus {
   ORDER_CREATED = 0;
   ORDER_CONFIRMED = 1;
@@ -48,9 +51,6 @@ message DeleteUserRequest {
   string id = 1;
 }
 
-// Пустое сообщение для подтверждения успеха
-message Empty {}
-
 // Сущность заказа
 message Order {
   string id = 1;
@@ -93,17 +93,17 @@ message UpdateOrderStatusRequest {
 service UserService {
   rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
   rpc GetUser(GetUserRequest) returns (User);
-  rpc ListUsers(Empty) returns (ListUsersResponse);
+  rpc ListUsers(google.protobuf.Empty) returns (ListUsersResponse);
   rpc UpdateUser(UpdateUserRequest) returns (User);
-  rpc DeleteUser(DeleteUserRequest) returns (Empty);
+  rpc DeleteUser(DeleteUserRequest) returns (google.protobuf.Empty);
 }
 
 service OrderService {
   rpc CreateOrder(CreateOrderRequest) returns (CreateOrderResponse);
-  rpc ListOrders(Empty) returns (ListOrdersResponse);
+  rpc ListOrders(google.protobuf.Empty) returns (ListOrdersResponse);
   rpc GetOrder(GetOrderRequest) returns (Order);
-  rpc DeleteOrder(DeleteOrderRequest) returns (Empty);
+  rpc DeleteOrder(DeleteOrderRequest) returns (google.protobuf.Empty);
   rpc ConfirmOrder(GetOrderRequest) returns (Order);
   rpc DeliverOrder(GetOrderRequest) returns (Order);
-  rpc CancelOrder(GetOrderRequest) returns (Empty);
+  rpc CancelOrder(GetOrderRequest) returns (google.protobuf.Empty);
 }
