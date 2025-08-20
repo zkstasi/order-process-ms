@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"order-ms/internal/model"
+	"order-ms/internal/repository"
 	"time"
 )
 
@@ -45,14 +46,14 @@ func ProcessDataChan(dataChan <-chan model.Storable, repo Repository) {
 	}
 }
 
-func Logger(ctx context.Context, repo Repository) {
+func Logger(ctx context.Context) {
 
 	// получаем стартовые длины, чтобы считать только новые данные
 
-	lastOrdersIndex := len(repo.GetOrders())
-	lastUsersIndex := len(repo.GetUsers())
-	lastDeliveriesIndex := len(repo.GetDeliveries())
-	lastWarehousesIndex := len(repo.GetWarehouses())
+	lastOrdersIndex := len(repository.GetOrders())
+	lastUsersIndex := len(repository.GetUsers())
+	lastDeliveriesIndex := len(repository.GetDeliveries())
+	lastWarehousesIndex := len(repository.GetWarehouses())
 
 	for {
 		select {
@@ -60,7 +61,7 @@ func Logger(ctx context.Context, repo Repository) {
 			return
 		case <-time.After(200 * time.Millisecond):
 			// Orders
-			orders := repo.GetOrders() // вызов функции, возвращаем копию среза и сохраняем в переменную
+			orders := repository.GetOrders() // вызов функции, возвращаем копию среза и сохраняем в переменную
 			if lastOrdersIndex > len(orders) {
 				lastOrdersIndex = len(orders)
 			}
@@ -75,7 +76,7 @@ func Logger(ctx context.Context, repo Repository) {
 			}
 
 			// Users
-			users := repo.GetUsers()
+			users := repository.GetUsers()
 			if lastUsersIndex > len(users) {
 				lastUsersIndex = len(users)
 			}
@@ -90,7 +91,7 @@ func Logger(ctx context.Context, repo Repository) {
 			}
 
 			// Deliveries
-			deliveries := repo.GetDeliveries()
+			deliveries := repository.GetDeliveries()
 			if lastDeliveriesIndex > len(deliveries) {
 				lastDeliveriesIndex = len(deliveries)
 			}
@@ -105,7 +106,7 @@ func Logger(ctx context.Context, repo Repository) {
 			}
 
 			// Warehouses
-			warehouses := repo.GetWarehouses()
+			warehouses := repository.GetWarehouses()
 			if lastWarehousesIndex > len(warehouses) {
 				lastWarehousesIndex = len(warehouses)
 			}
