@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"order-ms/internal/model"
-	"order-ms/internal/repository"
 	"time"
 )
 
@@ -36,87 +35,88 @@ func CreateStructs(ctx context.Context, dataChan chan<- model.Storable) {
 	}
 }
 
-// функция, которая читает из DataChan и сохраняет данные в репозиторий через бесконечный цикл
-// его останавливает закрытие канала dataChan
+// функция, которая читает из DataChan и метод Save данные сохраняет через интерфейс Repository
 
-func ProcessDataChan(dataChan <-chan model.Storable) {
+func ProcessDataChan(dataChan <-chan model.Storable, repo Repository) {
 	for s := range dataChan {
-		repository.SaveStorable(s)
+		if err := repo.Save(s); err != nil {
+			fmt.Printf("Error saving: %v\n", err)
+		}
 	}
 }
 
-func Logger(ctx context.Context) {
+func Logger(ctx context.Context, repo Repository) {
 
 	// получаем стартовые длины, чтобы считать только новые данные
 
-	lastOrdersIndex := len(repository.GetOrders())
-	lastUsersIndex := len(repository.GetUsers())
-	lastDeliveriesIndex := len(repository.GetDeliveries())
-	lastWarehousesIndex := len(repository.GetWarehouses())
+	lastOrdersIndex := len(repo.GetOrders())
+	lastUsersIndex := len(repo.GetUsers())
+	lastDeliveriesIndex := len(repo.GetDeliveries())
+	lastWarehousesIndex := len(repo.GetWarehouses())
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-time.After(200 * time.Millisecond):
-			orders := repository.GetOrders() // вызов функции, возвращаем копию среза и сохраняем в переменную
-			ordersCount := len(orders)
-			if lastOrdersIndex > ordersCount {
-				lastOrdersIndex = ordersCount
+			// Orders
+			orders := repo.GetOrders() // вызов функции, возвращаем копию среза и сохраняем в переменную
+			if lastOrdersIndex > len(orders) {
+				lastOrdersIndex = len(orders)
 			}
-			newOrders := orders[lastOrdersIndex:ordersCount]
+			newOrders := orders[lastOrdersIndex:]
 
 			if len(newOrders) > 0 {
 				fmt.Printf("New orders: %d\n", len(newOrders))
 				for _, o := range newOrders {
 					fmt.Printf("Order ID: %s, UserID: %s, Status: %d, CreatedAt: %s\n", o.Id, o.UserID, o.Status, o.CreatedAt)
 				}
-				lastOrdersIndex = ordersCount
+				lastOrdersIndex = len(orders)
 			}
 
-			users := repository.GetUsers()
-			usersCount := len(users)
-			if lastUsersIndex > usersCount {
-				lastUsersIndex = usersCount
+			// Users
+			users := repo.GetUsers()
+			if lastUsersIndex > len(users) {
+				lastUsersIndex = len(users)
 			}
-			newUsers := users[lastUsersIndex:usersCount]
+			newUsers := users[lastUsersIndex:]
 
 			if len(newUsers) > 0 {
 				fmt.Printf("New users: %d\n", len(newUsers))
 				for _, u := range newUsers {
 					fmt.Printf("User ID: %s, Name: %s\n", u.Id, u.Name)
 				}
-				lastUsersIndex = usersCount
+				lastUsersIndex = len(users)
 			}
 
-			deliveries := repository.GetDeliveries()
-			deliveriesCount := len(deliveries)
-			if lastDeliveriesIndex > deliveriesCount {
-				lastDeliveriesIndex = deliveriesCount
+			// Deliveries
+			deliveries := repo.GetDeliveries()
+			if lastDeliveriesIndex > len(deliveries) {
+				lastDeliveriesIndex = len(deliveries)
 			}
-			newDeliveries := deliveries[lastDeliveriesIndex:deliveriesCount]
+			newDeliveries := deliveries[lastDeliveriesIndex:]
 
 			if len(newDeliveries) > 0 {
 				fmt.Printf("New deliveries: %d\n", len(newDeliveries))
 				for _, d := range newDeliveries {
 					fmt.Printf("Delivery ID: %d, OrderID: %s, UserID: %s, Address: %s, Status: %d\n", d.Id, d.OrderId, d.UserId, d.Address, d.Status)
 				}
-				lastDeliveriesIndex = deliveriesCount
+				lastDeliveriesIndex = len(deliveries)
 			}
 
-			warehouses := repository.GetWarehouses()
-			warehousesCount := len(warehouses)
-			if lastWarehousesIndex > warehousesCount {
-				lastWarehousesIndex = warehousesCount
+			// Warehouses
+			warehouses := repo.GetWarehouses()
+			if lastWarehousesIndex > len(warehouses) {
+				lastWarehousesIndex = len(warehouses)
 			}
-			newWarehouses := warehouses[lastWarehousesIndex:warehousesCount]
+			newWarehouses := warehouses[lastWarehousesIndex:]
 
 			if len(newWarehouses) > 0 {
 				fmt.Printf("New warehouses: %d\n", len(newWarehouses))
 				for _, w := range newWarehouses {
 					fmt.Printf("Warehouse ID: %d, OrderID: %s, Status: %d\n", w.Id, w.OrderId, w.Status)
 				}
-				lastWarehousesIndex = warehousesCount
+				lastWarehousesIndex = len(warehouses)
 			}
 		}
 	}
