@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"order-ms/internal/model"
 	"order-ms/internal/repository"
+	"strings"
 	"testing"
 )
 
@@ -119,6 +120,104 @@ func TestGetOrderByID(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, tc.orderID, order.Id)
 			}
+		})
+	}
+}
+
+func TestCreateOrder(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	s := NewServer(":8080")
+	r := s.httpServer.Handler.(*gin.Engine)
+
+	tests := []struct {
+		name        string
+		body        string
+		wantStatus  int
+		wantUserID  string
+		wantCreated bool
+	}{
+		{
+			name:        "valid order",
+			body:        `{"user_id":"User-testOne", "status":0}`,
+			wantStatus:  http.StatusCreated,
+			wantUserID:  "User-testOne",
+			wantCreated: true,
+		},
+		{
+			name:       "missing user_id",
+			body:       `{"status":1}`,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "invalid json",
+			body:       `{user_id:"User-testOne", "status":}`,
+			wantStatus: http.StatusBadRequest,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req, _ := http.NewRequest("POST", "/api/orders", strings.NewReader(tc.body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			r.ServeHTTP(w, req)
+
+			assert.Equal(t, tc.wantStatus, w.Code)
+
+			if tc.wantCreated {
+				var got model.Order
+				err := json.Unmarshal(w.Body.Bytes(), &got)
+				assert.NoError(t, err)
+				assert.NotEmpty(t, got.Id)
+				assert.Equal(t, tc.wantUserID, got.UserID)
+			}
+		})
+	}
+}
+
+func TestDeleteOrderByID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	s := NewServer(":8080")
+	r := s.httpServer.Handler.(*gin.Engine)
+
+	tests := []struct {
+		name       string
+		prepare    func() string // возвращает ID заказа для удаления
+		wantStatus int
+	}{
+		{
+			name: "delete existing order",
+			prepare: func() string {
+				// создаём новый заказ
+				order := model.NewOrder("user-test-delete")
+				repository.SaveStorable(order)
+				return order.Id
+			},
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name: "delete non-existing order",
+			prepare: func() string {
+				// возвращаем ID, которого точно нет
+				return "non-existent-id"
+			},
+			wantStatus: http.StatusNotFound,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			orderID := tc.prepare()
+
+			req, _ := http.NewRequest("DELETE", "/api/orders/"+orderID, nil)
+			w := httptest.NewRecorder()
+
+			r.ServeHTTP(w, req)
+
+			assert.Equal(t, tc.wantStatus, w.Code)
 		})
 	}
 }
