@@ -223,6 +223,87 @@ func TestDeleteOrderByID(t *testing.T) {
 	}
 }
 
+// тест для обновления статуса заказа
+func TestOrderStatusHandlers(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	// создаём тестовые заказы
+	orderCreated := model.NewOrder("User1") // статус OrderCreated
+	orderConfirmed := model.NewOrder("User2")
+	orderConfirmed.Status = model.OrderConfirmed // статус Confirmed
+	orderDelivered := model.NewOrder("User3")
+	orderDelivered.Status = model.OrderDelivered // статус Delivered
+	orderCancelled := model.NewOrder("User4")
+	orderCancelled.Status = model.OrderCancelled // статус Cancelled
+
+	// сохраняем в репозиторий
+	repository.SaveStorable(orderCreated)
+	repository.SaveStorable(orderConfirmed)
+	repository.SaveStorable(orderDelivered)
+	repository.SaveStorable(orderCancelled)
+
+	s := NewServer(":8080")
+	r := s.httpServer.Handler.(*gin.Engine)
+
+	tests := []struct {
+		name           string
+		route          string
+		orderID        string
+		wantHTTPStatus int
+		wantRepoStatus model.OrderStatus
+	}{
+		{
+			name:           "confirm created order",
+			route:          "/api/orders/confirm/",
+			orderID:        orderCreated.Id,
+			wantHTTPStatus: http.StatusOK,
+			wantRepoStatus: model.OrderConfirmed,
+		},
+		{
+			name:           "confirm already confirmed order",
+			route:          "/api/orders/confirm/",
+			orderID:        orderConfirmed.Id,
+			wantHTTPStatus: http.StatusConflict,
+		},
+		{
+			name:           "delivery confirmed order",
+			route:          "/api/orders/delivery/",
+			orderID:        orderConfirmed.Id,
+			wantHTTPStatus: http.StatusOK,
+			wantRepoStatus: model.OrderDelivered,
+		},
+		{
+			name:           "cancel created order",
+			route:          "/api/orders/cancel/",
+			orderID:        orderCreated.Id,
+			wantHTTPStatus: http.StatusNoContent,
+		},
+		{
+			name:           "cancel delivered order",
+			route:          "/api/orders/cancel/",
+			orderID:        orderConfirmed.Id,
+			wantHTTPStatus: http.StatusConflict,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req, _ := http.NewRequest("POST", tc.route+tc.orderID, nil)
+			w := httptest.NewRecorder()
+
+			r.ServeHTTP(w, req)
+			assert.Equal(t, tc.wantHTTPStatus, w.Code)
+
+			// проверяем статус в репозитории, если указан
+			if tc.wantRepoStatus != 0 {
+				order := repository.GetOrderByID(tc.orderID)
+				assert.NotNil(t, order)
+				assert.Equal(t, tc.wantRepoStatus, order.Status)
+			}
+		})
+	}
+}
+
 // тест ручки GET для получения пользователей
 func TestGetUsers(t *testing.T) {
 	gin.SetMode(gin.TestMode) // чтобы не было лишних логов
