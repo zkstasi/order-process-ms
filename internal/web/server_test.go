@@ -1,6 +1,7 @@
 package web
 
 import (
+	"bytes"
 	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -218,6 +219,279 @@ func TestDeleteOrderByID(t *testing.T) {
 			r.ServeHTTP(w, req)
 
 			assert.Equal(t, tc.wantStatus, w.Code)
+		})
+	}
+}
+
+// тест ручки GET для получения пользователей
+func TestGetUsers(t *testing.T) {
+	gin.SetMode(gin.TestMode) // чтобы не было лишних логов
+
+	if err := repository.LoadUsersFromFile("../../data/users.json"); err != nil {
+		t.Fatalf("Не удалось загрузить пользователей: %v", err)
+	}
+
+	tests := []struct {
+		name        string
+		expectedMin int
+	}{
+		{
+			name:        "users exist",
+			expectedMin: 1,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+
+			// создаем сервер
+			s := NewServer(":8080")
+
+			// получаем роутер
+			r := s.httpServer.Handler.(*gin.Engine)
+
+			// создаем запрос
+			req, _ := http.NewRequest("GET", "/api/users", nil)
+			w := httptest.NewRecorder()
+
+			// выполняем запрос
+			r.ServeHTTP(w, req)
+
+			// проверяем код ответа
+			assert.Equal(t, http.StatusOK, w.Code)
+
+			// проверяем тело ответа
+			var got []model.User
+			err := json.Unmarshal(w.Body.Bytes(), &got)
+			assert.NoError(t, err)
+			assert.GreaterOrEqual(t, len(got), tc.expectedMin)
+		})
+	}
+}
+
+// тест ручки GET для получения пользователя по ID
+func TestGetUserByID(t *testing.T) {
+	gin.SetMode(gin.TestMode) // чтобы не было лишних логов
+
+	if err := repository.LoadUsersFromFile("../../data/users.json"); err != nil {
+		t.Fatalf("Не удалось загрузить пользователей: %v", err)
+	}
+
+	tests := []struct {
+		name       string
+		userID     string
+		wantStatus int
+		wantID     string
+	}{
+		{
+			name:       "existing user",
+			userID:     "User-1754393816395113000",
+			wantStatus: http.StatusOK,
+			wantID:     "User-1754393816395113000",
+		},
+		{
+			name:       "non-existing user",
+			userID:     "non-existent-id",
+			wantStatus: http.StatusNotFound,
+			wantID:     "",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+
+			// создаем сервер
+			s := NewServer(":8080")
+
+			// получаем роутер
+			r := s.httpServer.Handler.(*gin.Engine)
+
+			// создаем запрос
+			req, _ := http.NewRequest("GET", "/api/users/"+tc.userID, nil)
+			w := httptest.NewRecorder()
+
+			// выполняем запрос
+			r.ServeHTTP(w, req)
+
+			// проверяем код ответа
+			assert.Equal(t, tc.wantStatus, w.Code)
+
+			// проверяем тело ответа
+			if tc.wantStatus == http.StatusOK {
+				var user model.User
+				err := json.Unmarshal(w.Body.Bytes(), &user)
+				assert.NoError(t, err)
+				assert.Equal(t, tc.userID, user.Id)
+			}
+		})
+	}
+}
+
+func TestCreateUser(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	s := NewServer(":8080")
+	r := s.httpServer.Handler.(*gin.Engine)
+
+	tests := []struct {
+		name        string
+		body        string
+		wantStatus  int
+		wantCreated bool
+	}{
+		{
+			name:        "valid user",
+			body:        `{"id":"User-test", "name":"Гера"}`,
+			wantStatus:  http.StatusCreated,
+			wantCreated: true,
+		},
+		{
+			name:       "invalid json",
+			body:       `{id:"User-test", "name": ""}`,
+			wantStatus: http.StatusBadRequest,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req, _ := http.NewRequest("POST", "/api/users", strings.NewReader(tc.body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			r.ServeHTTP(w, req)
+
+			assert.Equal(t, tc.wantStatus, w.Code)
+
+			if tc.wantCreated {
+				var got model.User
+				err := json.Unmarshal(w.Body.Bytes(), &got)
+				assert.NoError(t, err)
+				assert.NotEmpty(t, got.Id)
+			}
+		})
+	}
+}
+
+func TestDeleteUserByID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	s := NewServer(":8080")
+	r := s.httpServer.Handler.(*gin.Engine)
+
+	tests := []struct {
+		name       string
+		prepare    func() string // возвращает ID заказа для удаления
+		wantStatus int
+	}{
+		{
+			name: "delete existing user",
+			prepare: func() string {
+				// создаём новый заказ
+				user := model.NewUser("user-test1-delete")
+				repository.SaveStorable(user)
+				return user.Id
+			},
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name: "delete non-existing user",
+			prepare: func() string {
+				// возвращаем ID, которого точно нет
+				return "non-existent-id"
+			},
+			wantStatus: http.StatusNotFound,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			userID := tc.prepare()
+
+			req, _ := http.NewRequest("DELETE", "/api/users/"+userID, nil)
+			w := httptest.NewRecorder()
+
+			r.ServeHTTP(w, req)
+
+			assert.Equal(t, tc.wantStatus, w.Code)
+		})
+	}
+}
+
+func TestUserUpdateByID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	s := NewServer(":8080")
+	r := s.httpServer.Handler.(*gin.Engine)
+
+	// создаём пользователя для тестов
+	existingUserID := "u1"
+	repository.SaveStorable(&model.User{Id: existingUserID, Name: "Old Name"})
+
+	tests := []struct {
+		name           string
+		userID         string
+		body           any
+		expectedStatus int
+		expectedName   string
+	}{
+		{
+			name:           "успешное обновление существующего пользователя",
+			userID:         existingUserID,
+			body:           updateUserRequest{Name: "New Name"},
+			expectedStatus: http.StatusOK,
+			expectedName:   "New Name",
+		},
+		{
+			name:           "пустое имя в запросе",
+			userID:         existingUserID,
+			body:           updateUserRequest{Name: ""},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:           "несуществующий пользователь",
+			userID:         "not-exist",
+			body:           updateUserRequest{Name: "Ghost"},
+			expectedStatus: http.StatusNotFound,
+		},
+		{
+			name:           "невалидный JSON",
+			userID:         existingUserID,
+			body:           "{invalid-json", // специально строка вместо структуры
+			expectedStatus: http.StatusBadRequest,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var reqBody []byte
+			var err error
+
+			switch v := tc.body.(type) {
+			case string:
+				reqBody = []byte(v)
+			default:
+				reqBody, err = json.Marshal(v)
+				assert.NoError(t, err)
+			}
+
+			req, _ := http.NewRequest(http.MethodPut, "/api/users/"+tc.userID, bytes.NewBuffer(reqBody))
+			req.Header.Set("Content-Type", "application/json")
+
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+
+			assert.Equal(t, tc.expectedStatus, w.Code)
+
+			if tc.expectedStatus == http.StatusOK {
+				var updatedUser model.User
+				err := json.Unmarshal(w.Body.Bytes(), &updatedUser)
+				assert.NoError(t, err)
+				assert.Equal(t, tc.expectedName, updatedUser.Name)
+
+				user := repository.GetUserByID(tc.userID)
+				assert.NotNil(t, user)
+				assert.Equal(t, tc.expectedName, user.Name)
+			}
 		})
 	}
 }
