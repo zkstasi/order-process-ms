@@ -4,121 +4,112 @@ import (
 	"context"
 	"fmt"
 	"order-ms/internal/model"
-	"order-ms/internal/repository"
 	"time"
 )
 
-// функция для создания структур и передачи их в канал DataChan
-
-func CreateStructs(ctx context.Context, dataChan chan<- model.Storable) {
-	for {
-		select {
-		case <-ctx.Done(): // Контекст отменен, нужно завершить работу
-			return
-		case <-time.After(200 * time.Millisecond): // контекст отменяется без искусственной задержки
-
-			// создаем пользователя
-			user := model.NewUser("Петя")
-			dataChan <- user
-
-			// создаем заказ с id пользователя
-			order := model.NewOrder(user.Id)
-			dataChan <- order
-
-			// создаем доставку с id заказа и пользователя
-			delivery := model.NewDelivery(order.Id, user.Id, "ул. Ленина", 0)
-			dataChan <- delivery
-
-			// создаем склад с id заказа
-			warehouse := model.NewWarehouse(order.Id, 0)
-			dataChan <- warehouse
-		}
-	}
+// Service — обертка вокруг репозитория
+type Service struct {
+	repo Repository
 }
 
-// функция, которая читает из DataChan и метод Save данные сохраняет через интерфейс Repository
-
-func ProcessDataChan(dataChan <-chan model.Storable, repo Repository) {
-	for s := range dataChan {
-		if err := repo.Save(s); err != nil {
-			fmt.Printf("Error saving: %v\n", err)
-		}
-	}
+// Создаем конструктор
+func NewService(repo Repository) *Service {
+	return &Service{repo: repo}
 }
 
-func Logger(ctx context.Context) {
-
-	// получаем стартовые длины, чтобы считать только новые данные
-
-	lastOrdersIndex := len(repository.GetOrders())
-	lastUsersIndex := len(repository.GetUsers())
-	lastDeliveriesIndex := len(repository.GetDeliveries())
-	lastWarehousesIndex := len(repository.GetWarehouses())
+// Logger выводит информацию о текущем состоянии базы
+func (s *Service) Logger(ctx context.Context) {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(200 * time.Millisecond):
-			// Orders
-			orders := repository.GetOrders() // вызов функции, возвращаем копию среза и сохраняем в переменную
-			if lastOrdersIndex > len(orders) {
-				lastOrdersIndex = len(orders)
-			}
-			newOrders := orders[lastOrdersIndex:]
+		case <-ticker.C:
+			orders, _ := s.repo.GetOrders()
+			fmt.Printf("Orders in DB: %d\n", len(orders))
 
-			if len(newOrders) > 0 {
-				fmt.Printf("New orders: %d\n", len(newOrders))
-				for _, o := range newOrders {
-					fmt.Printf("Order ID: %s, UserID: %s, Status: %d, CreatedAt: %s\n", o.Id, o.UserID, o.Status, o.CreatedAt)
-				}
-				lastOrdersIndex = len(orders)
-			}
+			users, _ := s.repo.GetUsers()
+			fmt.Printf("Users in DB: %d\n", len(users))
 
-			// Users
-			users := repository.GetUsers()
-			if lastUsersIndex > len(users) {
-				lastUsersIndex = len(users)
-			}
-			newUsers := users[lastUsersIndex:]
+			deliveries, _ := s.repo.GetDeliveries()
+			fmt.Printf("Deliveries in DB: %d\n", len(deliveries))
 
-			if len(newUsers) > 0 {
-				fmt.Printf("New users: %d\n", len(newUsers))
-				for _, u := range newUsers {
-					fmt.Printf("User ID: %s, Name: %s\n", u.Id, u.Name)
-				}
-				lastUsersIndex = len(users)
-			}
-
-			// Deliveries
-			deliveries := repository.GetDeliveries()
-			if lastDeliveriesIndex > len(deliveries) {
-				lastDeliveriesIndex = len(deliveries)
-			}
-			newDeliveries := deliveries[lastDeliveriesIndex:]
-
-			if len(newDeliveries) > 0 {
-				fmt.Printf("New deliveries: %d\n", len(newDeliveries))
-				for _, d := range newDeliveries {
-					fmt.Printf("Delivery ID: %d, OrderID: %s, UserID: %s, Address: %s, Status: %d\n", d.Id, d.OrderId, d.UserId, d.Address, d.Status)
-				}
-				lastDeliveriesIndex = len(deliveries)
-			}
-
-			// Warehouses
-			warehouses := repository.GetWarehouses()
-			if lastWarehousesIndex > len(warehouses) {
-				lastWarehousesIndex = len(warehouses)
-			}
-			newWarehouses := warehouses[lastWarehousesIndex:]
-
-			if len(newWarehouses) > 0 {
-				fmt.Printf("New warehouses: %d\n", len(newWarehouses))
-				for _, w := range newWarehouses {
-					fmt.Printf("Warehouse ID: %d, OrderID: %s, Status: %d\n", w.Id, w.OrderId, w.Status)
-				}
-				lastWarehousesIndex = len(warehouses)
-			}
+			warehouses, _ := s.repo.GetWarehouses()
+			fmt.Printf("Warehouses in DB: %d\n", len(warehouses))
 		}
 	}
 }
+
+// Save сохраняет объект через репозиторий
+func (s *Service) Save(sObj model.Storable) error {
+	return s.repo.Save(sObj)
+}
+
+//// MongoRepo реализует Repository для MongoDB и Redis
+//type MongoRepo struct{}
+//
+//// Save сохраняет объект в MongoDB и логирует в Redis
+//func (r *MongoRepo) Save(s model.Storable) error {
+//	switch v := s.(type) {
+//	case *model.Order:
+//		if err := repository.SaveOrder(v); err != nil {
+//			return err
+//		}
+//		// Логируем в Redis с TTL 1 час
+//		key := fmt.Sprintf("order:%s", v.Id)
+//		repository.RedisClient.Set(repository.Ctx, key, fmt.Sprintf("%+v", v), time.Hour)
+//
+//	case *model.User:
+//		if err := repository.SaveUser(v); err != nil {
+//			return err
+//		}
+//		key := fmt.Sprintf("user:%s", v.Id)
+//		repository.RedisClient.Set(repository.Ctx, key, fmt.Sprintf("%+v", v), time.Hour)
+//
+//	case *model.Delivery:
+//		if err := repository.SaveDelivery(v); err != nil {
+//			return err
+//		}
+//		key := fmt.Sprintf("delivery:%d", v.Id)
+//		repository.RedisClient.Set(repository.Ctx, key, fmt.Sprintf("%+v", v), time.Hour)
+//
+//	case *model.Warehouse:
+//		if err := repository.SaveWarehouse(v); err != nil {
+//			return err
+//		}
+//		key := fmt.Sprintf("warehouse:%d", v.Id)
+//		repository.RedisClient.Set(repository.Ctx, key, fmt.Sprintf("%+v", v), time.Hour)
+//
+//	default:
+//		return fmt.Errorf("неизвестный тип объекта: %T", s)
+//	}
+//
+//	return nil
+//}
+//
+//// Logger выводит информацию о текущем состоянии базы
+//func Logger(ctx context.Context) {
+//	ticker := time.NewTicker(5 * time.Second)
+//	defer ticker.Stop()
+//
+//	for {
+//		select {
+//		case <-ctx.Done():
+//			return
+//		case <-ticker.C:
+//			orders, _ := repository.GetOrders()
+//			fmt.Printf("Orders in DB: %d\n", len(orders))
+//
+//			users, _ := repository.GetUsers()
+//			fmt.Printf("Users in DB: %d\n", len(users))
+//
+//			deliveries, _ := repository.GetDeliveries()
+//			fmt.Printf("Deliveries in DB: %d\n", len(deliveries))
+//
+//			warehouses, _ := repository.GetWarehouses()
+//			fmt.Printf("Warehouses in DB: %d\n", len(warehouses))
+//		}
+//	}
+//}

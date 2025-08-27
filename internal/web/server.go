@@ -7,13 +7,14 @@ import (
 	"log"
 	"net/http"
 	"order-ms/internal/model"
-	"order-ms/internal/repository"
+	"order-ms/internal/service"
 	"time"
 )
 
 type Server struct {
 	address    string       // Адрес, по которому будет слушать сервер
 	httpServer *http.Server // Указатель на стандартный http-сервер
+	repo       service.Repository
 }
 
 // Структура для парсинга, какие поля ожидаем в json-запросе
@@ -31,7 +32,7 @@ type updateUserRequest struct {
 
 // создание нового сервера
 
-func NewServer(address string) *Server {
+func NewServer(address string, repo service.Repository) *Server {
 	router := gin.New()
 
 	s := &Server{
@@ -43,6 +44,7 @@ func NewServer(address string) *Server {
 			WriteTimeout: 10 * time.Second, // сколько времени дается серверу на отправку ответа клиенту
 			IdleTimeout:  60 * time.Second, // время ожидания между запросами, если клиент держит соединение открытым
 		},
+		repo: repo,
 	}
 	//регистрируем эндпоинты (маршруты) в gin, по которым будут обрабатываться запросы
 	router.POST("/api/orders", s.handleOrderCreate) // связь url с методом-обработчиком
@@ -52,6 +54,7 @@ func NewServer(address string) *Server {
 	router.POST("/api/orders/confirm/:id", s.handleOrderConfirm)
 	router.POST("/api/orders/delivery/:id", s.handleOrderDelivery)
 	router.POST("/api/orders/cancel/:id", s.handleOrderCancel)
+
 	router.POST("/api/users", s.handleUserCreate)
 	router.GET("/api/users", s.handleUserList)
 	router.GET("/api/users/:id", s.handleUserGetByID)
@@ -63,7 +66,6 @@ func NewServer(address string) *Server {
 }
 
 // метод запуска http-сервера
-
 func (s *Server) Start() error {
 	log.Printf("Server starting on %s\n", s.address)
 	return s.httpServer.ListenAndServe() // запускает сервер и блокирует при ошибке
@@ -95,7 +97,10 @@ func (s *Server) handleOrderCreate(c *gin.Context) {
 	}
 	// создаем заказ и сохраняем
 	order := model.NewOrder(req.UserID)
-	repository.SaveStorable(order)
+	if err := s.repo.Save(order); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Cannot save order"})
+		return
+	}
 	// возвращаем результат клиенту
 	c.JSON(http.StatusCreated, order)
 }
@@ -111,7 +116,11 @@ func (s *Server) handleOrderCreate(c *gin.Context) {
 // @Router /api/orders [get]
 func (s *Server) handleOrderList(c *gin.Context) {
 	// получаем список всех заказов
-	orders := repository.GetOrders()
+	orders, err := s.repo.GetOrders()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Cannot get orders"})
+		return
+	}
 	// отправляем клиенту json-массив заказов
 	c.JSON(http.StatusOK, orders)
 }
@@ -135,7 +144,11 @@ func (s *Server) handleOrderGetByID(c *gin.Context) {
 		return
 	}
 	// ищем заказ
-	order := repository.GetOrderByID(id)
+	order, err := s.repo.GetOrderByID(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Cannot get order"})
+		return
+	}
 
 	if order == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
@@ -160,7 +173,11 @@ func (s *Server) handleOrderDeleteByID(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing order ID"})
 		return
 	}
-	ok := repository.DeleteOrder(id)
+	ok, err := s.repo.DeleteOrder(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Cannot delete order"})
+		return
+	}
 	if !ok {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
 		return
@@ -180,27 +197,35 @@ func (s *Server) handleOrderDeleteByID(c *gin.Context) {
 // @Failure 404 {object} object "Заказ не найден"
 // @Router /api/orders/confirm/{id} [post]
 func (s *Server) handleOrderConfirm(c *gin.Context) {
-	// извлекаем id заказа
 	id := c.Param("id")
 	if id == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing order ID"})
 		return
 	}
-	// находим заказ в хранилище по его id
-	order := repository.GetOrderByID(id)
-	// если заказ не найден, возвращаем ошибку
+
+	// подтверждаем заказ через репозиторий
+	ok, err := s.repo.ConfirmOrder(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to confirm order"})
+		return
+	}
+
+	if !ok {
+		c.JSON(http.StatusConflict, gin.H{"error": "Order not found or not in CREATED status"})
+		return
+	}
+
+	// берём обновлённый заказ
+	order, err := s.repo.GetOrderByID(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch order"})
+		return
+	}
 	if order == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found after confirm"})
 		return
 	}
-	// проверяем, можно ли подтвердить заказ
-	if order.Status != model.OrderCreated {
-		c.JSON(http.StatusConflict, gin.H{"error": "Order is not created"})
-		return
-	}
-	// меняем статус заказа на "1"
-	repository.ConfirmOrder(id)
-	order = repository.GetOrderByID(id)
+
 	c.JSON(http.StatusOK, order)
 }
 
@@ -222,17 +247,28 @@ func (s *Server) handleOrderDelivery(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing order ID"})
 		return
 	}
-	order := repository.GetOrderByID(id)
+	// помечаем заказ как доставленный
+	ok, err := s.repo.DeliverOrder(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to mark order as delivered"})
+		return
+	}
+	if !ok {
+		c.JSON(http.StatusConflict, gin.H{"error": "Order not found or not in CONFIRMED status"})
+		return
+	}
+
+	// достаём обновлённый заказ
+	order, err := s.repo.GetOrderByID(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch updated order"})
+		return
+	}
 	if order == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found after delivery"})
 		return
 	}
-	if order.Status != model.OrderConfirmed {
-		c.JSON(http.StatusConflict, gin.H{"error": "Order is not confirmed"})
-		return
-	}
-	repository.DeliveredOrder(id)
-	order = repository.GetOrderByID(id)
+
 	c.JSON(http.StatusOK, order)
 }
 
@@ -254,17 +290,17 @@ func (s *Server) handleOrderCancel(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing order ID"})
 		return
 	}
-	order := repository.GetOrderByID(id)
-	if order == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
+	ok, err := s.repo.CancelOrder(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to cancel order"})
 		return
 	}
-	if order.Status != model.OrderCreated && order.Status != model.OrderConfirmed {
-		c.JSON(http.StatusConflict, gin.H{"error": "Order cannot be canceled"})
+	if !ok {
+		c.JSON(http.StatusConflict, gin.H{"error": "Order not found or cannot be canceled"})
 		return
 	}
 
-	repository.CancelOrder(id)
+	// успешная отмена → возвращаем 204 No Content
 	c.Status(http.StatusNoContent)
 }
 
@@ -289,9 +325,13 @@ func (s *Server) handleUserCreate(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Name is required"})
 		return
 	}
+	// создаем пользователя и сохраняем
 	user := model.NewUser(req.Name)
-	repository.SaveStorable(user)
-
+	if err := s.repo.Save(user); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Cannot save user"})
+		return
+	}
+	// возвращаем результат клиенту
 	c.JSON(http.StatusCreated, user)
 }
 
@@ -305,7 +345,11 @@ func (s *Server) handleUserCreate(c *gin.Context) {
 // @Failure 500 {object} object "Ошибка кодирования ответа"
 // @Router /api/users [get]
 func (s *Server) handleUserList(c *gin.Context) {
-	users := repository.GetUsers()
+	users, err := s.repo.GetUsers()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Cannot get users"})
+		return
+	}
 	c.JSON(http.StatusOK, users)
 }
 
@@ -329,11 +373,16 @@ func (s *Server) handleUserGetByID(c *gin.Context) {
 		return
 	}
 	// ищем пользователя по id
-	user := repository.GetUserByID(id)
+	user, err := s.repo.GetUserByID(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user"})
+		return
+	}
 	if user == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
+
 	c.JSON(http.StatusOK, user)
 }
 
@@ -366,12 +415,21 @@ func (s *Server) handleUserUpdateByID(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Name is required"})
 		return
 	}
-	ok := repository.UpdateUserName(id, req.Name)
+	ok, err := s.repo.UpdateUserName(id, req.Name)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
+		return
+	}
 	if !ok {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
-	updatedUser := repository.GetUserByID(id)
+
+	updatedUser, err := s.repo.GetUserByID(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch updated user"})
+		return
+	}
 	c.JSON(http.StatusOK, updatedUser)
 }
 
@@ -392,10 +450,16 @@ func (s *Server) handleUserDeleteByID(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing user ID"})
 		return
 	}
-	ok := repository.DeleteUser(id)
+	ok, err := s.repo.DeleteUser(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete user"})
+		return
+	}
+
 	if !ok {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
+
 	c.Status(http.StatusNoContent)
 }
