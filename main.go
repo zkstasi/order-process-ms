@@ -8,9 +8,11 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
 	_ "order-ms/docs"
-	"order-ms/internal/repository"
+	"order-ms/internal/repository/memory"
+	repository "order-ms/internal/repository/nosql"
 	"order-ms/internal/service"
 	"order-ms/internal/web"
 	"os/signal"
@@ -19,20 +21,30 @@ import (
 )
 
 func main() {
+	// Флаг командной строки для выбора репозитория
+	useMemory := flag.Bool("memory", false, "Use in-memory repository")
+	flag.Parse()
+
 	//создание контекста, который отменится, когда пользователь нажмет Ctrl+C или придет другой сигнал завершения
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop() // освобождаем ресурсы
 
-	// Инициализация MongoDB и Redis
-	if err := repository.InitDB(); err != nil {
-		log.Fatalf("Ошибка инициализации базы данных: %v", err)
+	var repo service.Repository
+	if *useMemory {
+		repo = memory.NewMemoryRepo()
+	} else {
+		// Инициализация Mongo/Redis для настоящего репозитория
+		if err := repository.InitDB(); err != nil {
+			log.Fatalf("Ошибка инициализации базы данных: %v", err)
+		}
+		defer repository.CloseDB()
+		repo = repository.NewRepository()
 	}
-	defer repository.CloseDB() // Закрываем соединения при завершении приложения
+
+	// Создаем сервис с выбранным репозиторием
+	svc := service.NewService(repo)
 
 	var wg sync.WaitGroup
-
-	repo := repository.NewRepository() // возвращает *repository.Repo, реализующий service.Repository
-	svc := service.NewService(repo)
 
 	wg.Add(1) // запуск логирования
 	go func() {
@@ -161,4 +173,11 @@ func main() {
 
 	<-ctx.Done() // ждем сигнала ОС
 	wg.Wait()    // Ждем завершения горутин
+
+	// Сохраняем данные MemoryRepo при завершении
+	if memRepo, ok := repo.(*memory.MemoryRepo); ok {
+		memRepo.SaveAllData()
+	}
+
+	log.Println("Приложение завершено")
 }
