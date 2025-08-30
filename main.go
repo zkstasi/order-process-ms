@@ -8,11 +8,13 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"flag"
 	"log"
 	_ "order-ms/docs"
 	"order-ms/internal/repository/memory"
 	repository "order-ms/internal/repository/nosql"
+	"order-ms/internal/repository/postgres"
 	"order-ms/internal/service"
 	"order-ms/internal/web"
 	"os/signal"
@@ -23,17 +25,37 @@ import (
 func main() {
 	// Флаг командной строки для выбора репозитория
 	useMemory := flag.Bool("memory", false, "Use in-memory repository")
+	usePostgres := flag.Bool("postgres", false, "Use PostgreSQL repository")
 	flag.Parse()
 
 	//создание контекста, который отменится, когда пользователь нажмет Ctrl+C или придет другой сигнал завершения
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop() // освобождаем ресурсы
 
-	var repo service.Repository
+	var repo service.Repository // переменная, которая будет хранить репозиторий. Через который сервис будет работать с базой данных
+
+	// если флаг memory передан, то все данные хранятся в оперативке
 	if *useMemory {
 		repo = memory.NewMemoryRepo()
+	} else if *usePostgres {
+		// Подключение к PostgreSQL
+		dsn := "postgres://postgres:postgres@localhost:5432/orderdb?sslmode=disable"
+		db, err := sql.Open("pgx", dsn)
+		if err != nil {
+			log.Fatalf("Ошибка подключения к Postgres: %v", err)
+		}
+
+		// Проверка соединения
+		if err := db.Ping(); err != nil {
+			log.Fatalf("Не удалось подключиться к Postgres: %v", err)
+		}
+
+		// создаём репозиторий для Postgres, который реализует интерфейс service.Repository
+		pgRepo := postgres.NewPostgresRepo(db)
+		defer db.Close() // закрытие соединения при завершении
+		repo = pgRepo
 	} else {
-		// Инициализация Mongo/Redis для настоящего репозитория
+		// текущий Mongo/Redis репозиторий
 		if err := repository.InitDB(); err != nil {
 			log.Fatalf("Ошибка инициализации базы данных: %v", err)
 		}
