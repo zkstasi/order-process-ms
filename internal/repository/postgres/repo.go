@@ -91,41 +91,32 @@ func (r *Repo) DeleteOrder(id string) (bool, error) {
 	return n > 0, nil
 }
 
-func (r *Repo) ConfirmOrder(orderId string) (bool, error) {
-	// меняем 0->1
-	res, err := r.db.ExecContext(r.ctx,
-		`UPDATE orders SET status=$1 WHERE id=$2 AND status=$3`,
-		int(model.OrderConfirmed), orderId, int(model.OrderCreated))
+func (r *Repo) updateOrderStatus(orderId string, status int) (bool, error) {
+	const cmd = `UPDATE orders SET status = $1 WHERE id = $2`
+
+	res, err := r.db.ExecContext(r.ctx, cmd, status, orderId)
 	if err != nil {
 		return false, err
 	}
-	n, _ := res.RowsAffected()
+
+	n, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+
 	return n > 0, nil
+}
+
+func (r *Repo) ConfirmOrder(orderId string) (bool, error) {
+	return r.updateOrderStatus(orderId, 1)
 }
 
 func (r *Repo) DeliverOrder(orderId string) (bool, error) {
-	// меняем 1->2
-	res, err := r.db.ExecContext(r.ctx,
-		`UPDATE orders SET status=$1 WHERE id=$2 AND status=$3`,
-		int(model.OrderDelivered), orderId, int(model.OrderConfirmed))
-	if err != nil {
-		return false, err
-	}
-	n, _ := res.RowsAffected()
-	return n > 0, nil
+	return r.updateOrderStatus(orderId, 2)
 }
 
 func (r *Repo) CancelOrder(orderId string) (bool, error) {
-	// меняем 0/1 -> 3
-	res, err := r.db.ExecContext(r.ctx,
-		`UPDATE orders SET status=$1 WHERE id=$2 AND status IN ($3,$4)`,
-		int(model.OrderCancelled), orderId,
-		int(model.OrderCreated), int(model.OrderConfirmed))
-	if err != nil {
-		return false, err
-	}
-	n, _ := res.RowsAffected()
-	return n > 0, nil
+	return r.updateOrderStatus(orderId, 3)
 }
 
 // Пользователи
